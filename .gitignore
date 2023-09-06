@@ -1,0 +1,15 @@
+exploratory/res/
+glyphosate_resistance_seau/res/BK
+glyphosate_resistance_seau/res/julia
+glyphosate_resistance_seau/res/poolgen
+glyphosate_resistance_seau/res/dmc
+glyphosate_resistance_seau/res/npstat
+glyphosate_resistance_seau/res/SLiM*/
+glyphosate_resistance_seau/res/GWAlpha/BK/
+glyphosate_resistance_seau/res/*.sync
+glyphosate_resistance_seau/res/*.gff
+glyphosate_resistance_seau/res/*.csv
+glyphosate_resistance_seau/res/*.dbf
+glyphosate_resistance_seau/res/*.prj
+glyphosate_resistance_seau/res/*.shp
+glyphosate_resistance_seau/res/*.shx

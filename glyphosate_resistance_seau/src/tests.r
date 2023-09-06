@@ -1,0 +1,30 @@
+### Unit tests
+
+args = commandArgs(trailingOnly = FALSE)
+script_dir = dirname(gsub("--file=", "", args[grepl("--file=", args)]))
+setwd(script_dir)
+
+source("./data_loading_and_merging.r")
+source("./kriging_and_maps.r")
+source("./model_fitting.r")
+
+options(digits.secs=7)
+
+print("#########################################################")
+print("data_loading_and_merging: ")
+start_time = Sys.time()
+data_loading_and_merging()
+end_time = Sys.time()
+print(end_time - start_time)
+print("#########################################################")
+print("kriging_and_maps: ")
+start_time = Sys.time()
+kriging_and_maps()
+end_time = Sys.time()
+print(end_time - start_time)
+print("#########################################################")
+print("model_fitting: ")
+start_time = Sys.time()
+model_fitting()
+end_time = Sys.time()
+print(end_time - start_time)

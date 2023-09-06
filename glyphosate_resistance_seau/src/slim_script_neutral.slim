@@ -1,0 +1,264 @@
+// Helper functions
+function (float)mutTypeFrequency(o<MutationType>$ mutType, Nio<Subpopulation>$ subpops)
+{
+    muts = sim.mutationsOfType(mutType);
+    if (sum(sim.substitutions.mutationType == mutType) == 1)
+            return 1.00;
+    if (muts.size() > 0)
+        return sim.mutationFrequencies(subpops, muts);
+    else 
+        return NULL;
+}
+function (float)estimateNe_Heterozygosity(o<Subpopulation>$ subpop)
+{
+    pi = calcHeterozygosity(subpop.genomes);
+    return pi / (4 * MU);
+}
+function (integer)tabulateFecundity(o<Subpopulation>$ subpop, i$ previous_N)
+{
+    parentIDs = subpop.individuals.pedigreeParentIDs;
+    rescaledParentIDs = parentIDs - min(parentIDs);
+    return tabulate(rescaledParentIDs, previous_N - 1);
+}
+function (float)estimateNe_Inbreeding(o<Subpopulation>$ subpop)
+{
+    previous_N = subpop.getValue("previous_N");
+    k = tabulateFecundity(subpop, previous_N);
+    return (previous_N * mean(k) - 2) / (mean(k) - 1 + var(k) / mean(k));
+}
+
+function (string) calc4Neu_per_window(o<Genome> A, Ni$ SEGMENT_SIZE, Ni$ WINDOW_SIZE) {
+    // SEGMENT_SIZE = 23123;
+    // WINDOW_SIZE = 100;
+    N_WINDOWS = asInteger(ceil(SEGMENT_SIZE / WINDOW_SIZE));
+    heterozygosity_observed = c();
+    heterozygosity_expected = c();
+    for (i in 1:N_WINDOWS) {
+        ini = (i-1) * WINDOW_SIZE + 1;
+        fin = (i-0) * WINDOW_SIZE + 0;
+        if (fin > SEGMENT_SIZE) {
+            fin = SEGMENT_SIZE;
+        }
+        pi = calcHeterozygosity(A, NULL, ini, fin);
+        wt = calcWattersonsTheta(A, NULL, ini, fin);
+        heterozygosity_observed = c(heterozygosity_observed, pi);
+        heterozygosity_expected = c(heterozygosity_expected, wt);
+    }
+    // return paste(heterozygosity_observed - heterozygosity_expected, sep=",");
+    return paste(c(heterozygosity_observed, heterozygosity_expected), sep=",");
+    // x = mean(heterozygosity_observed);
+    // return asString(x);
+}
+
+function (float) calcFST_account_for_zero_over_zero(o<Genome> A, o<Genome> B, No<Mutation> muts, Ni$ start, Ni$ end) {
+    pi_A = calcHeterozygosity(A, muts, start, end);
+    pi_B = calcHeterozygosity(B, muts, start, end);
+    if ( (pi_A==0.0) & (pi_B==0.0) ) {
+        return NULL;
+    }
+    return calcFST(A, B, muts, start, end);
+}
+
+initialize() {
+    defineGlobal("N1", 1e3);
+    defineGlobal("N2", 1e3);
+    defineGlobal("N3", 1e3);
+    defineGlobal("N4", 1e3);
+    defineGlobal("N5", 1e3);
+    defineGlobal("M12", 1e-3);
+    defineGlobal("M13", 1e-3);
+    defineGlobal("M14", 1e-3);
+    defineGlobal("M15", 1e-3);
+    defineGlobal("M21", 1e-3);
+    defineGlobal("M23", 1e-3);
+    defineGlobal("M24", 1e-3);
+    defineGlobal("M25", 1e-3);
+    defineGlobal("M31", 1e-3);
+    defineGlobal("M32", 1e-3);
+    defineGlobal("M34", 1e-3);
+    defineGlobal("M35", 1e-3);
+    defineGlobal("M41", 1e-3);
+    defineGlobal("M42", 1e-3);
+    defineGlobal("M43", 1e-3);
+    defineGlobal("M45", 1e-3);
+    defineGlobal("M51", 1e-3);
+    defineGlobal("M52", 1e-3);
+    defineGlobal("M53", 1e-3);
+    defineGlobal("M54", 1e-3);
+
+    defineGlobal("MU", 9.01e-9); // Mutation rate: 9.01 x 10^(-9) - estimates from Oryza sativa (not using Arabipsis thaliana estimates of 4.35 x 10(-9)) from Wang et a, 2019
+    defineGlobal("R", 1e-8);
+    // defineGlobal("R", 1e-2);
+    // defineGlobal("SEGMENT_SIZE", 23123);
+    // defineGlobal("MUTATION_LOCATION", 22199);
+    defineGlobal("SEGMENT_SIZE", 1023123); // + 1MB
+    defineGlobal("MUTATION_LOCATION", 502199); // put in the middle-ish position of this chromosome, i.e. + 500,000 bp
+    defineGlobal("MUTATION_DOMINANCE", 1.00);
+    // defineGlobal("MUTATION_FREQ_THRESH", 1.00/N1);
+    defineGlobal("MUTATION_FREQ_THRESH", 0.01);
+    defineGlobal("MUTATION_SEL_COEF_0", 0.01);
+    defineGlobal("MUTATION_EFFECT_1", 1.001);
+    defineGlobal("MUTATION_EFFECT_2", 1.05);
+    defineGlobal("MUTATION_EFFECT_3", 1.10);
+    defineGlobal("MUTATION_EFFECT_4", 1.20);
+    defineGlobal("MUTATION_EFFECT_5", 1.40);
+
+    // Initialise
+    initializeMutationRate(MU);
+    initializeRecombinationRate(R);
+    initializeMutationType("m1", 0.5, "f", 0.0);
+    initializeMutationType("m2", MUTATION_DOMINANCE, "f", 0.0); // introduced mutation (initially neutral)
+    initializeGenomicElementType("g1", m1, 1.0);
+    initializeGenomicElement(g1, 0, SEGMENT_SIZE); // Gene of interest, i.e. LOC124669605 DNA-directed RNA polymerase subunit beta''-like [ Lolium rigidum ] Location: NC_061514.1: 7,398,899 - 7,422,023 = 23,124 bases
+}
+1 early() {
+    // save this run's identifier, used to save and restore
+    defineConstant("simID", getSeed());
+    sim.addSubpop("p1", N1);
+}
+9000 late() {
+    // save the state of the simulation
+    sim.outputFull("slim-simstate-" + simID + ".txt");
+    // introduce the sweep mutation
+    target = sample(p1.genomes, 1);
+    target.addNewDrawnMutation(m2, MUTATION_LOCATION); // GWAS peak at position 7,421,098 which translates to the 22,199th position
+}
+
+9000:9001 late() {
+    cat("tick\n");
+    mut = sim.mutationsOfType(m2);
+    if (size(mut) == 1) {
+        if (sim.mutationFrequencies(NULL, mut) > MUTATION_FREQ_THRESH) {
+            cat(simID + ": ESTABLISHED – CONVERTING TO BENEFICIAL\n");
+            mut.setSelectionCoeff(MUTATION_SEL_COEF_0);
+            community.deregisterScriptBlock(self);
+        }
+    } else {
+        cat(simID + ": LOST BEFORE ESTABLISHMENT – RESTARTING\n");
+        // go back to tick 9000
+        sim.readFromPopulationFile("slim-simstate-" + simID + ".txt");
+        // start a newly seeded run
+        setSeed(rdunif(1, 0, asInteger(2^62) - 1));
+        // re-introduce the sweep mutation
+        target = sample(p1.genomes, 1);
+        target.addNewDrawnMutation(m2, MUTATION_LOCATION); // GWAS peak at position 7,421,098 which translates to the 22,199th position
+    }
+}
+
+
+9002 early() {
+    sim.addSubpopSplit("p2", N2, p1);
+    sim.addSubpopSplit("p3", N2, p1);
+    sim.addSubpopSplit("p4", N2, p1);
+    sim.addSubpopSplit("p5", N2, p1);
+    p1.setMigrationRates(p2, M12);
+    p1.setMigrationRates(p3, M13);
+    p1.setMigrationRates(p4, M14);
+    p1.setMigrationRates(p5, M15);
+    p2.setMigrationRates(p1, M21);
+    p2.setMigrationRates(p3, M23);
+    p2.setMigrationRates(p4, M24);
+    p2.setMigrationRates(p5, M25);
+    p3.setMigrationRates(p1, M31);
+    p3.setMigrationRates(p2, M32);
+    p3.setMigrationRates(p4, M34);
+    p3.setMigrationRates(p5, M35);
+    p4.setMigrationRates(p1, M41);
+    p4.setMigrationRates(p2, M42);
+    p4.setMigrationRates(p3, M43);
+    p4.setMigrationRates(p5, M45);
+    p5.setMigrationRates(p1, M51);
+    p5.setMigrationRates(p2, M52);
+    p5.setMigrationRates(p3, M53);
+    p5.setMigrationRates(p4, M54);
+}
+
+9002: mutationEffect(m2, p1) { return MUTATION_EFFECT_1; }
+9002: mutationEffect(m2, p2) { return MUTATION_EFFECT_2; }
+9002: mutationEffect(m2, p3) { return MUTATION_EFFECT_3; }
+9002: mutationEffect(m2, p4) { return MUTATION_EFFECT_4; }
+9002: mutationEffect(m2, p5) { return MUTATION_EFFECT_5; }
+
+9002 early() {
+
+    log = community.createLogFile("slim-log.csv", logInterval=1);
+    log.addCycle();
+    log.addCustomColumn("N(t)", "p1.individualCount;");
+    log.addCustomColumn("q_p1", "mutTypeFrequency(m2, p1);");
+    log.addCustomColumn("q_p2", "mutTypeFrequency(m2, p2);");
+    log.addCustomColumn("q_p3", "mutTypeFrequency(m2, p3);");
+    log.addCustomColumn("q_p4", "mutTypeFrequency(m2, p4);");
+    log.addCustomColumn("q_p5", "mutTypeFrequency(m2, p5);");
+    
+    log.addCustomColumn("pi_wt_p5", "calc4Neu_per_window(p5.genomes, SEGMENT_SIZE, 1000);");
+    
+
+    // log.addCustomColumn("pi_m_p1", "calcHeterozygosity(p1.genomes, sim.mutationsOfType(m2), NULL, NULL);");
+    // log.addCustomColumn("pi_m_p2", "calcHeterozygosity(p2.genomes, sim.mutationsOfType(m2), NULL, NULL);");
+    // log.addCustomColumn("pi_m_p3", "calcHeterozygosity(p3.genomes, sim.mutationsOfType(m2), NULL, NULL);");
+    // log.addCustomColumn("pi_m_p4", "calcHeterozygosity(p4.genomes, sim.mutationsOfType(m2), NULL, NULL);");
+    // log.addCustomColumn("pi_m_p5", "calcHeterozygosity(p5.genomes, sim.mutationsOfType(m2), NULL, NULL);");
+
+    // log.addCustomColumn("wt_m_p1", "calcWattersonsTheta(p1.genomes, sim.mutationsOfType(m2), NULL, NULL);");
+    // log.addCustomColumn("wt_m_p2", "calcWattersonsTheta(p2.genomes, sim.mutationsOfType(m2), NULL, NULL);");
+    // log.addCustomColumn("wt_m_p3", "calcWattersonsTheta(p3.genomes, sim.mutationsOfType(m2), NULL, NULL);");
+    // log.addCustomColumn("wt_m_p4", "calcWattersonsTheta(p4.genomes, sim.mutationsOfType(m2), NULL, NULL);");
+    // log.addCustomColumn("wt_m_p5", "calcWattersonsTheta(p5.genomes, sim.mutationsOfType(m2), NULL, NULL);");
+    
+    // log.addCustomColumn("fst_m_p1p2", "calcFST_account_for_zero_over_zero(p1.genomes, p2.genomes, sim.mutationsOfType(m2), NULL, NULL);");
+    // log.addCustomColumn("fst_m_p1p3", "calcFST_account_for_zero_over_zero(p1.genomes, p3.genomes, sim.mutationsOfType(m2), NULL, NULL);");
+    // log.addCustomColumn("fst_m_p1p4", "calcFST_account_for_zero_over_zero(p1.genomes, p4.genomes, sim.mutationsOfType(m2), NULL, NULL);");
+    // log.addCustomColumn("fst_m_p1p5", "calcFST_account_for_zero_over_zero(p1.genomes, p5.genomes, sim.mutationsOfType(m2), NULL, NULL);");
+    // log.addCustomColumn("fst_m_p2p3", "calcFST_account_for_zero_over_zero(p2.genomes, p3.genomes, sim.mutationsOfType(m2), NULL, NULL);");
+    // log.addCustomColumn("fst_m_p2p4", "calcFST_account_for_zero_over_zero(p2.genomes, p4.genomes, sim.mutationsOfType(m2), NULL, NULL);");
+    // log.addCustomColumn("fst_m_p2p5", "calcFST_account_for_zero_over_zero(p2.genomes, p5.genomes, sim.mutationsOfType(m2), NULL, NULL);");
+    // log.addCustomColumn("fst_m_p3p4", "calcFST_account_for_zero_over_zero(p3.genomes, p4.genomes, sim.mutationsOfType(m2), NULL, NULL);");
+    // log.addCustomColumn("fst_m_p3p5", "calcFST_account_for_zero_over_zero(p3.genomes, p5.genomes, sim.mutationsOfType(m2), NULL, NULL);");
+    // log.addCustomColumn("fst_m_p4p5", "calcFST_account_for_zero_over_zero(p4.genomes, p5.genomes, sim.mutationsOfType(m2), NULL, NULL);");
+
+    // log.addCustomColumn("pi_g_p1", "calcHeterozygosity(p1.genomes);");
+    // log.addCustomColumn("pi_g_p2", "calcHeterozygosity(p2.genomes);");
+    // log.addCustomColumn("pi_g_p3", "calcHeterozygosity(p3.genomes);");
+    // log.addCustomColumn("pi_g_p4", "calcHeterozygosity(p4.genomes);");
+    // log.addCustomColumn("pi_g_p5", "calcHeterozygosity(p5.genomes);");
+
+    // log.addCustomColumn("wt_g_p1", "calcWattersonsTheta(p1.genomes);");
+    // log.addCustomColumn("wt_g_p2", "calcWattersonsTheta(p2.genomes);");
+    // log.addCustomColumn("wt_g_p3", "calcWattersonsTheta(p3.genomes);");
+    // log.addCustomColumn("wt_g_p4", "calcWattersonsTheta(p4.genomes);");
+    // log.addCustomColumn("wt_g_p5", "calcWattersonsTheta(p5.genomes);");
+    
+    // log.addCustomColumn("fst_g_p1p2", "calcFST_account_for_zero_over_zero(p1.genomes, p2.genomes, NULL, NULL, NULL);");
+    // log.addCustomColumn("fst_g_p1p3", "calcFST_account_for_zero_over_zero(p1.genomes, p3.genomes, NULL, NULL, NULL);");
+    // log.addCustomColumn("fst_g_p1p4", "calcFST_account_for_zero_over_zero(p1.genomes, p4.genomes, NULL, NULL, NULL);");
+    // log.addCustomColumn("fst_g_p1p5", "calcFST_account_for_zero_over_zero(p1.genomes, p5.genomes, NULL, NULL, NULL);");
+    // log.addCustomColumn("fst_g_p2p3", "calcFST_account_for_zero_over_zero(p2.genomes, p3.genomes, NULL, NULL, NULL);");
+    // log.addCustomColumn("fst_g_p2p4", "calcFST_account_for_zero_over_zero(p2.genomes, p4.genomes, NULL, NULL, NULL);");
+    // log.addCustomColumn("fst_g_p2p5", "calcFST_account_for_zero_over_zero(p2.genomes, p5.genomes, NULL, NULL, NULL);");
+    // log.addCustomColumn("fst_g_p3p4", "calcFST_account_for_zero_over_zero(p3.genomes, p4.genomes, NULL, NULL, NULL);");
+    // log.addCustomColumn("fst_g_p3p5", "calcFST_account_for_zero_over_zero(p3.genomes, p5.genomes, NULL, NULL, NULL);");
+    // log.addCustomColumn("fst_g_p4p5", "calcFST_account_for_zero_over_zero(p4.genomes, p5.genomes, NULL, NULL, NULL);");
+
+}
+
+9002:9128 late() {
+    ///////////////////////////////
+    // TESTS
+    // cat(calc4Neu_per_window(p5.genomes, SEGMENT_SIZE, 100) + "\n");
+    // cat(calcHeterozygosity(p5.genomes, NULL) + "\n");
+    // cat("Observed_het = " + calcHeterozygosity(p5.genomes, sim.mutationsOfType(m2), NULL, NULL) + "\n");
+    // cat("Expected_het = " + calcWattersonsTheta(p5.genomes, sim.mutationsOfType(m2), NULL, NULL) + "\n");
+    // pi = calcHeterozygosity(p1.genomes, sim.mutationsOfType(m2), NULL, NULL);
+    // wt = calcWattersonsTheta(p1.genomes, sim.mutationsOfType(m2), NULL, NULL);
+    // d = pi - wt;
+    // cat("pi = " + pi + "\n");
+    // cat("wt = " + wt + "\n");
+    // cat("D-ish = " + d + "\n");
+    ///////////////////////////////
+    if (sim.countOfMutationsOfType(m2) == 0) {
+        fixed = (sum(sim.substitutions.mutationType == m2) == 1);
+        cat(simID + ifelse(fixed, ": FIXED\n", ": LOST\n"));
+
+        sim.simulationFinished();
+    }
+}
