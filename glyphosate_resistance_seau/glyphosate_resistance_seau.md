@@ -897,7 +897,9 @@ done
 - Perform some sort of meta-analysis on the p-values or allele effects?
 - Population- and batch-specific QTL will be identified, most probably?
 
-### Identifying overlaps between GWAS and genomewide scan for selective sweeps
+## Identifying overlaps between GWAS and genomewide scan for selective sweeps
+
+- GWAlpha and Tajima's D
 
 ```R
 dir_base="/data-weedomics-1/weedomics/glyphosate_resistance_seau"
@@ -999,6 +1001,13 @@ dev.off()
 ```
 
 ![](./res/GWAS_peaks_ACC062_and_Tajimas_D_ACC001_vs_ACC062.png)
+
+
+- pool-GPAS and Tajima's D and XP-CLR
+
+```R
+
+```
 
 
 # OLD STUFF BELOW
