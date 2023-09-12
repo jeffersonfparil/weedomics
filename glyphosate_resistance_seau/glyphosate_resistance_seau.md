@@ -132,7 +132,7 @@ dev.off()
 
 ### Pairwise Fst: genetic differentiation between populations
 
-- Let's look at the pairwise Fst between populations.
+- Let's look at the pairwise Fst between populations. This also outputs Fst across non-overlapping sliding windows.
 
 ```shell
 dir="/data-weedomics-1/weedomics/glyphosate_resistance_seau/res"
@@ -144,7 +144,7 @@ poolgen fst \
     --phen-name-col 0 \
     --phen-pool-size-col 1 \
     --phen-value-col 5 \
-    --window-size-bp 1000 \
+    --window-size-bp 100000 \
     --n-threads 32 \
     -o fst.csv
 ```
@@ -494,7 +494,7 @@ df_phe = LOAD_PHENOTYPES(fname_phenotype="phenotype_data.csv", batch="all", phen
 df_phenotype = LOAD_PHENOTYPES(fname_phenotype="phenotype_data.csv", batch="all", phenotype_names="Glyphosate")
 fname_fst = "fst.csv"
 list_df_phe_fst_and_mat_fst = MERGE_PHENOTYPE_AND_FST(df_phenotype=df_phenotype, fname_fst=fname_fst)
-df_phe_fst = list_df_phe_fst_and_mat_fst$df_phe_fst
+df_phe_fst = list_df_phe_fst_and_mat_fst$df_phe_fst; write.table(df_phe_fst, file="fst-phen-coor.csv", row.names=F, quote=FALSE, sep=",")
 df_het = read.csv("heterozygosity.csv")
 df_het = df_het[,c(1, 2)]
 colnames(df_het) = c("X.Population", "Heterozygosity")
@@ -595,11 +595,8 @@ dev.off()
 
 ## Atlas of genomic signatures of selection
 
-- We will use Tajima's D and [XP-CLR scores](https://genome.cshlp.org/content/20/3/393.full) to assess genome-wide signatures of deviations to neutral expectations.
-- Tajima's D will be computed per 1kb window independently per population.
-- XP-CLR scores will be computed per 1kb windows as well but between pairs of populations, particularly resistant and susceptible
-
-- Tajima's D:
+- We will use Tajima's D to assess genome-wide signatures of deviations to neutral expectations.
+- Tajima's D is computed per 10 kb non-overlapping windows per population.
 
 ```shell
 dir="/data-weedomics-1/weedomics/glyphosate_resistance_seau/res"
@@ -646,27 +643,6 @@ for (pop0 in c("ACC001", "ACC039")) {
 ![tajimas_d](./res/tajima_d-maf0.0_cov10_win10kb-ACC039-ACC041.svg)
 ![tajimas_d](./res/tajima_d-maf0.0_cov10_win10kb-ACC039-ACC062.svg)
 
-
-- XP-CLR:
-
-```shell
-dir="/data-weedomics-1/weedomics/glyphosate_resistance_seau/res"
-cd $dir
-time \
-poolgen xpclr \
-    -f genotype_data_maf0.0.sync \
-    -p phenotype_data.csv \
-    --selection-coefficient-min 0.5 \
-    --selection-coefficient-max 0.5 \
-    --selection-coefficient-n-steps 1 \
-    --recombination-rate-min 1.0e-5 \
-    --recombination-rate-max 1.0e-5 \
-    --recombination-rate-n-steps 1 \
-    --min-allele-frequency 0.0 \
-    --min-coverage 10 \
-    --n-threads 32 \
-    -o xpclr-maf0.0_cov10.csv
-```
 
 ## Elucidating the genetic bases of glyphosate resistance
 
