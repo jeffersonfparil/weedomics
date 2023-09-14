@@ -303,6 +303,8 @@ dev.off()
 - **Point to Batch 2018: Batch 2018 - 2 points; Batch 2022 - 1 point.**
 
 ```shell
+dir=/data-weedomics-1/weedomics/glyphosate_resistance_seau/res
+cd $dir
 time \
 poolgen heterozygosity \
     -f genotype_data_maf0.0.sync \
@@ -310,7 +312,8 @@ poolgen heterozygosity \
     --phen-name-col 0 \
     --phen-pool-size-col 1 \
     --phen-value-col 5 \
-    --window-size-bp 1000 \
+    --min-loci-per-window 1 \
+    --window-size-bp 1 \
     --n-threads 32 \
     -o heterozygosity.csv
 ```
@@ -473,7 +476,7 @@ for (i in 1:length(list_idx)) {
     V = scale(P$x[,1:2], center=TRUE, scale=TRUE)
     for (eigenvec in colnames(X)) {
         idx_ = rownames(V)==eigenvec
-        arrows(x0=0, y0=0, colMeans(x1)=V[idx_, 1]/7, y1=V[idx_, 2]/7, length=0.1)
+        arrows(x0=0, y0=0, x1=V[idx_, 1]/7, y1=V[idx_, 2]/7, length=0.1)
         text(x=V[idx_, 1]/7, y=V[idx_, 2]/7, lab=eigenvec, pos=3, col="gray")
     }
 }
@@ -514,6 +517,10 @@ set.seed(123)
 clustering = kmeans(scale(as.matrix(cbind(df$Glyphosate, df$Heterozygosity, df$Fst)), center=TRUE, scale=TRUE),
                     centers=k, iter.max=1e5)
 colours_clusters = c("#d7191c", "#fdae61", "#abd9e9", "#2c7bb6")
+labels_clusters = c("Resistant, high Fst",
+                    "Susceptible, high heterozygosity",
+                    "Susceptible, medium heterozygosity",
+                    "Resistant, low Fst")
 
 ### Plot
 svg("Fst_heterozygosity_and_glyphosate_resistance.svg", width=9, height=9)
@@ -528,10 +535,9 @@ plot(x=df$Heterozygosity, y=df$Glyphosate, xlab="Heterozygosity", ylab="Glyphosa
 grid()
 abline(mod, lty=2, col="red")
 ### Fst vs resistance
-df$Fst = df$Fst * 1e3
 mod = lm(Glyphosate ~ Fst, data=df)
 corr = cor.test(df$Fst, df$Glyphosate)
-plot(x=df$Fst, y=df$Glyphosate, xlab="Fst (×10⁻³)", ylab="Glyphosate Resistance (%)",
+plot(x=df$Fst, y=df$Glyphosate, xlab="Fst", ylab="Glyphosate Resistance (%)",
      type="p", pch=19, col=colours_clusters[clustering$cluster],
      main=paste0("ρ=", round(corr$estimate*100), "%; p-value=", round(corr$p.value,4)))
 grid()
@@ -540,11 +546,12 @@ abline(mod, lty=2, col="red")
 ### Heterozygosity vs Fst ###
 mod = lm(Fst ~ Heterozygosity, data=df)
 corr = cor.test(df$Heterozygosity, df$Fst)
-plot(x=df$Heterozygosity, y=df$Fst, xlab="Heterozygosity", ylab="Fst (×10⁻³)",
+plot(x=df$Heterozygosity, y=df$Fst, xlab="Heterozygosity", ylab="Fst",
      type="p", pch=19, col=colours_clusters[clustering$cluster],
      main=paste0("ρ=", round(corr$estimate*100), "%; p-value=", round(corr$p.value,4)))
 grid()
 abline(mod, lty=2, col="red")
+legend("topright", legend=labels_clusters, fill=colours_clusters)
 #######################
 ### Distance vs Fst ###
 vec_pop = df$X.Population
@@ -568,11 +575,11 @@ vec_fst = as.vector(mat_fixa)
 vec_ydif = as.vector(mat_ydif)
 vec_ydif = ceiling(100 * (vec_ydif - min(vec_ydif,na.rm=TRUE)) / (max(vec_ydif,na.rm=TRUE) - min(vec_ydif,na.rm=TRUE))) + 1
 vec_colours = colorRampPalette(c("#fff7f3","#fde0dd","#fcc5c0","#fa9fb5","#f768a1","#dd3497","#ae017e","#7a0177","#49006a"))(101)
-mod = lm(vec_fst*1e3 ~ vec_dist)
+mod = lm(vec_fst ~ vec_dist)
 corr = cor.test(vec_dist, vec_fst)
 mantel = vegan::mantel(scale(mat_fixa, T, T), scale(mat_dist, T, T), method="pearson", permutations=1000)
-plot(x=vec_dist, y=vec_fst*1e3, xlab="Distance (km)", ylab="Fst (×10⁻³)",
-     ylim=c(min(vec_fst*1e3,na.rm=TRUE), max(vec_fst*1e3,na.rm=TRUE)+0.5),
+plot(x=vec_dist, y=vec_fst, xlab="Distance (km)", ylab="Fst",
+     ylim=c(min(vec_fst,na.rm=TRUE), max(vec_fst,na.rm=TRUE)+0.0005),
      type="p", pch=19, col=vec_colours[vec_ydif],
      main=paste0("Mantel statistic=", round(mantel$statistic,4), "; p-value=", round(mantel$signif,4), "\n(ρ=", round(corr$estimate*100), "%; p-value=", round(corr$p.value,4), ")"))
 grid()

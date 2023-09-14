@@ -34,7 +34,9 @@ LOAD_PHENOTYPES = function(fname_phenotype="../res/phenotype_data.csv", batch="a
     if (length(idx_cols) < 5) {
         print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
         print("ERROR!")
-        print("Please select a valid phenotype name. Select from:")
+        print("Please validate the expected column names. Expected:")
+        print(variable_names)
+        print("From the input phenotype data:")
         print(eval(parse(text=paste0("colnames(df_phenotype)[!(", paste(paste0("(colnames(df_phenotype)=='",  c("Batch", variable_names[1:4]), "')"), collapse=" | "), ")]"))))
         return("ERROR!")
     }
