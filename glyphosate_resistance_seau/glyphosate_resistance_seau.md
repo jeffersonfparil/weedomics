@@ -53,14 +53,11 @@ Let's assess genetic differentiation between populations and genetic diversity a
 
 ```shell
 dir="/data-weedomics-1/weedomics/glyphosate_resistance_seau/res"
-cd $dir
-git clone https://github.com/jeffersonfparil/poolgen.git
 ### Install cargo:
 curl https://sh.rustup.rs -sSf | sh
 source "$HOME/.cargo/env"
-cd poolgen
-cargo build --release
-sudo ln -s ${dir}/poolgen/target/release/poolgen /usr/bin/poolgen
+### Install poolgen
+cargo install --git https:/github.com/jeffersonfparil/poolgen.git
 ```
 
 ### Genetic relationships between populations using raw allele frequencies
@@ -145,6 +142,8 @@ poolgen fst \
     --phen-pool-size-col 1 \
     --phen-value-col 5 \
     --window-size-bp 100000 \
+    --window-slide-size-bp 100000 \
+    --min-loci-per-window 10 \
     --n-threads 32 \
     -o fst.csv
 ```
