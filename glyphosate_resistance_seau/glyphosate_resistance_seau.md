@@ -311,8 +311,9 @@ poolgen heterozygosity \
     --phen-name-col 0 \
     --phen-pool-size-col 1 \
     --phen-value-col 5 \
-    --min-loci-per-window 1 \
-    --window-size-bp 1 \
+    --window-size-bp 100000 \
+    --window-slide-size-bp 100000 \
+    --min-loci-per-window 10 \
     --n-threads 32 \
     -o heterozygosity.csv
 ```
@@ -358,7 +359,7 @@ for (batch in c(2018, 2022)) {
                                     label=paste0("Scaled heterozygosity (min=", round(het_min,4), "; max=", round(het_max,4), ")"),
                                     colours=rev(c("#9e0142","#d53e4f","#f46d43","#fdae61","#fee08b","#ffffbf","#e6f598","#abdda4","#66c2a5","#3288bd","#5e4fa2")),
                                     n_colours=n_colours,
-                                    plot_points=FALSE, plot_krig=TRUE, rescale_krig=TRUE, hist_not_range=TRUE)
+                                    plot_points=TRUE, plot_krig=TRUE, rescale_krig=TRUE, hist_not_range=TRUE)
 }
 ### Correlation between heterozygosity and glyphosate resistance
 svg("Heterozygosity_and_glyphosate_resistance_correlation.svg", width=10, height=6)

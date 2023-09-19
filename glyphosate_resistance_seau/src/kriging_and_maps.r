@@ -48,7 +48,7 @@ LOAD_AND_DEFINE_REGION = function(fname_region_kml="../res/landscape.kml", fname
 
 KRIGING_AND_LINEAR_MODELS = function(REGION) {
     # REGION = LOAD_AND_DEFINE_REGION()
-    vec_models = c("Exp", "Sph", "Mat", "Ste", "Gau")
+    vec_models = c("Ste", "Mat", "Sph", "Exp", "Gau")
     K1 = tryCatch(autoKrige.cv(z ~ 1, model=vec_models[1], REGION$df_data), error=function(e){autoKrige.cv(z ~ 1, REGION$df_data)})
     K2 = tryCatch(autoKrige.cv(z ~ 1, model=vec_models[2], REGION$df_data), error=function(e){autoKrige.cv(z ~ 1, REGION$df_data)})
     K3 = tryCatch(autoKrige.cv(z ~ 1, model=vec_models[3], REGION$df_data), error=function(e){autoKrige.cv(z ~ 1, REGION$df_data)})
@@ -56,7 +56,7 @@ KRIGING_AND_LINEAR_MODELS = function(REGION) {
     K5 = tryCatch(autoKrige.cv(z ~ 1, model=vec_models[5], REGION$df_data), error=function(e){autoKrige.cv(z ~ 1, REGION$df_data)})
     K_compare = compare.cv(K1, K2, K3, K4, K5)
     rmse = unlist(K_compare[rownames(K_compare)=="RMSE", ])
-    idx = which(rmse == min(rmse))[1]
+    idx = tail(which(rmse == min(rmse)), 1) # pick the last one, i.e. simpler models
     # mae = unlist(K_compare[rownames(K_compare)=="MAE", ])
     # idx = which(mae == min(mae))[1]
     model = vec_models[idx]
@@ -72,6 +72,8 @@ KRIGING_AND_LINEAR_MODELS = function(REGION) {
         model = "Matern covariance"
     } else if (model=="Ste") {
         model = "Stein's Matern Parameterisation"
+    } else {
+        model = "Gaussian"
     }
     P = cbind(K$krige_output@coords, K$krige_output@data)[, 1:3]
     ### Set predicted resistances less than 0 to 0, and greater than 100 to 100
@@ -144,7 +146,12 @@ PLOT_DISTRIBUTION_MAP = function(REGION, MODELS, fname_map_svg="../res/Glyphosat
     maximum = max(MODELS$df_kriged[, 3], na.rm=TRUE)
     if (plot_krig==TRUE) {
         if (rescale_krig==TRUE) {
-            MODELS$df_kriged[, 3] = 100 * (MODELS$df_kriged[, 3] - minimum) / (maximum - minimum)
+            if ((maximum - minimum) > 1e-7) {
+                MODELS$df_kriged[, 3] = 100 * (MODELS$df_kriged[, 3] - minimum) / (maximum - minimum)
+            } else {
+                MODELS$df_kriged[, 3] = 50 ### set to mid colours if there is no variation in the kriged resistance levels
+            }
+            
         }
         for (k in 1:nrow(MODELS$df_kriged)){
             # k = 1
