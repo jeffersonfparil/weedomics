@@ -650,6 +650,26 @@ for (pop0 in c("ACC001", "ACC039")) {
 ![tajimas_d](./res/tajima_d-maf0.0_cov10_win10kb-ACC039-ACC041.svg)
 ![tajimas_d](./res/tajima_d-maf0.0_cov10_win10kb-ACC039-ACC062.svg)
 
+- Now, let's try a made-up approach which I call gudmc (**g**enomewide **u**nbiased **d**iscernment of **m**odes of **c**onvergent evolution)
+
+```shell
+dir="/data-weedomics-1/weedomics/glyphosate_resistance_seau/res"
+cd $dir
+time \
+poolgen gudmc \
+    -f genotype_data_maf0.0.sync \
+    -p phenotype_data.csv \
+    --min-allele-frequency 0.0 \
+    --min-coverage 10 \
+    --window-size-bp 10000 \
+    --window-slide-size-bp 5000 \
+    --min-loci-per-window 10 \
+    --sigma-threshold 1.0 \
+    --recombination-rate-cm-per-mb 0.73 \
+    --n-threads 32 \
+    -o gudmc-maf0.0_cov10_win10kb_slide5kb_minlocwin10.csv
+```
+
 
 ## Elucidating the genetic bases of glyphosate resistance
 
