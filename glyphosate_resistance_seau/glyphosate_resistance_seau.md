@@ -670,6 +670,25 @@ poolgen gudmc \
     -o gudmc-maf0.0_cov10_win10kb_slide5kb_minlocwin10.csv
 ```
 
+Let's look at the results of gudmc:
+
+```R
+dat = read.csv("gudmc-maf0.0_cov10_win10kb_slide5kb_minlocwin10.csv")
+
+vec_pop_a = sort(unique(df$pop_a))
+vec_pop_b = sort(unique(df$pop_b))
+
+i = 1
+j = 2
+idx = which((df$pop_a == vec_pop_a[i]) & (df$pop_b == vec_pop_b[i]))
+if (length(idx) > 0) {
+    df = dat[idx, ]
+    str(df)
+    
+}
+
+```
+
 
 ## Elucidating the genetic bases of glyphosate resistance
 
