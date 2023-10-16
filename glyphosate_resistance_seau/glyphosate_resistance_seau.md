@@ -675,19 +675,40 @@ Let's look at the results of gudmc:
 ```R
 dat = read.csv("gudmc-maf0.0_cov10_win10kb_slide5kb_minlocwin10.csv")
 
-vec_pop_a = sort(unique(df$pop_a))
-vec_pop_b = sort(unique(df$pop_b))
+vec_pop_a = sort(unique(dat$pop_a))
+vec_pop_b = sort(unique(dat$pop_b))
 
 i = 1
 j = 2
-idx = which((df$pop_a == vec_pop_a[i]) & (df$pop_b == vec_pop_b[i]))
+idx = which((dat$pop_a == vec_pop_a[i]) & (dat$pop_b == vec_pop_b[j]))
 if (length(idx) > 0) {
     df = dat[idx, ]
     str(df)
+    # lod_threshold = -log10(0.05 / nrow(df))
+    lod_threshold = -log10(0.01)
+    tajima = df$tajima_d_pop_b
+    dfst = df$fst_delta
+    tajima_pval = df$tajima_width_one_tail_pval_pop_b
+    dfst_pval = df$fst_delta_one_tail_pval
+    tajima_idx = which((-log10(tajima_pval) >= lod_threshold) & (tajima != 0))
+    dfst_idx = which((-log10(dfst_pval) >= lod_threshold) & (dfst != 0))
+    svg("test.svg")
+    layout(matrix(1:2, nrow=2, ncol=1))
+    x = c(1:length(tajima))
+    y = rep(0, length(tajima))
+    y[tajima_idx] = tajima[tajima_idx]
+    plot(x, y); grid(); text(x=x, y=y, cex=0.25, pos=2, label=paste0(df$chr, "_", df$pos_ini, "-", df$pos_fin)[tajima_idx])
+    x = rep(0, length(dfst))
+    x[dfst_idx] = dfst[dfst_idx]
+    plot(x); grid(); text(pos=2, label=paste0(df$chr, "_", df$pos_ini, "-", df$pos_fin))
+    dev.off()
     
 }
 
 ```
+
+![test](res/test.svg)
+
 
 
 ## Elucidating the genetic bases of glyphosate resistance
