@@ -697,10 +697,11 @@ if (length(idx) > 0) {
     x = c(1:length(tajima))
     y = rep(0, length(tajima))
     y[tajima_idx] = tajima[tajima_idx]
-    plot(x, y); grid(); text(x=x, y=y, cex=0.25, pos=2, label=paste0(df$chr, "_", df$pos_ini, "-", df$pos_fin)[tajima_idx])
-    x = rep(0, length(dfst))
-    x[dfst_idx] = dfst[dfst_idx]
-    plot(x); grid(); text(pos=2, label=paste0(df$chr, "_", df$pos_ini, "-", df$pos_fin))
+    plot(x, y); grid(); text(x=x, y=y, cex=0.5, pos=2, label=paste0(df$chr, "_", df$pos_ini, "-", df$pos_fin)[tajima_idx])
+    x = c(1:length(dfst))
+    y = rep(0, length(dfst))
+    y[dfst_idx] = dfst[dfst_idx]
+    plot(x, y); grid(); text(x=x, y=y, cex=0.5, pos=2, label=paste0(df$chr, "_", df$pos_ini, "-", df$pos_fin)[tajima_idx])
     dev.off()
     
 }
