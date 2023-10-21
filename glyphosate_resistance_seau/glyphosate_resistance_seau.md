@@ -659,32 +659,47 @@ time \
 poolgen gudmc \
     -f genotype_data_maf0.0.sync \
     -p phenotype_data.csv \
-    --min-allele-frequency 0.0 \
-    --min-coverage 10 \
+    --min-allele-frequency 0.0001 \
+    --min-coverage 5 \
     --window-size-bp 10000 \
-    --window-slide-size-bp 5000 \
+    --window-slide-size-bp 10000 \
     --min-loci-per-window 10 \
     --sigma-threshold 1.0 \
     --recombination-rate-cm-per-mb 0.73 \
     --n-threads 32 \
-    -o gudmc-maf0.0_cov10_win10kb_slide5kb_minlocwin10.csv
+    -o gudmc-maf0.0_cov10_win10kb_slide10kb_minlocwin10.csv
 ```
 
 Let's look at the results of gudmc:
 
 ```R
-dat = read.csv("gudmc-maf0.0_cov10_win10kb_slide5kb_minlocwin10.csv")
+dat = read.csv("gudmc-maf0.0_cov10_win10kb_slide10kb_minlocwin10.csv")
 
 vec_pop_a = sort(unique(dat$pop_a))
 vec_pop_b = sort(unique(dat$pop_b))
 
-i = 1
-j = 2
+i = 39
+j = 1
 idx = which((dat$pop_a == vec_pop_a[i]) & (dat$pop_b == vec_pop_b[j]))
 if (length(idx) > 0) {
     df = dat[idx, ]
+    df = df[grepl("^NC", df$chr), ]
     str(df)
-    # lod_threshold = -log10(0.05 / nrow(df))
+
+    vec_chr = unique(df$chr)
+    vec_chr_pos = c()
+    vec_consecutive_pos = c(0)
+    for (chr in vec_chr) {
+        # chr = vec_chr[1]
+        idx_chr = which(df$chr == chr)
+        vec_pos = df$pos_ini[idx_chr] + (df$pos_fin[idx_chr] - df$pos_ini[idx_chr])/2
+        vec_pos = vec_pos - min(vec_pos) + 1 + tail(vec_consecutive_pos, n=1)
+        vec_chr_pos = c(vec_chr_pos, median(vec_pos))
+        vec_consecutive_pos = c(vec_consecutive_pos, vec_pos)
+    }
+    vec_consecutive_pos = vec_consecutive_pos[-1]
+    df$vec_consecutive_pos = vec_consecutive_pos
+    x = df$vec_consecutive_pos
     lod_threshold = -log10(0.01)
     tajima = df$tajima_d_pop_b
     dfst = df$fst_delta
@@ -692,18 +707,31 @@ if (length(idx) > 0) {
     dfst_pval = df$fst_delta_one_tail_pval
     tajima_idx = which((-log10(tajima_pval) >= lod_threshold) & (tajima != 0))
     dfst_idx = which((-log10(dfst_pval) >= lod_threshold) & (dfst != 0))
-    svg("test.svg")
+
+    overlap_idx = which(((-log10(tajima_pval) >= lod_threshold) & (tajima != 0)) & ((-log10(dfst_pval) >= lod_threshold) & (dfst != 0)))
+
+    labels = paste0(df$chr, "_", df$pos_ini, "-", df$pos_fin)
+    svg("test.svg", width=14, height=7)
     layout(matrix(1:2, nrow=2, ncol=1))
-    x = c(1:length(tajima))
-    y = rep(0, length(tajima))
-    y[tajima_idx] = tajima[tajima_idx]
-    plot(x, y); grid(); text(x=x, y=y, cex=0.5, pos=2, label=paste0(df$chr, "_", df$pos_ini, "-", df$pos_fin)[tajima_idx])
-    x = c(1:length(dfst))
-    y = rep(0, length(dfst))
-    y[dfst_idx] = dfst[dfst_idx]
-    plot(x, y); grid(); text(x=x, y=y, cex=0.5, pos=2, label=paste0(df$chr, "_", df$pos_ini, "-", df$pos_fin)[tajima_idx])
+    plot(x=x, y=tajima, xaxt="n", main="Tajima's D", xlab="", ylab="", type="l", las=2); grid()
+    axis(1, at=vec_chr_pos, label=vec_chr)
+    ### significantly deviating Tajima's D width compared with the genomewide mean
+    tajima_idx_width_sigsmall = df$tajima_width_pop_b[tajima_idx] < mean(df$tajima_width_pop_b)
+    tajima_idx_width_siglarge = df$tajima_width_pop_b[tajima_idx] > mean(df$tajima_width_pop_b)
+    ### de novo mutation (green points)
+    points(x=x[tajima_idx][tajima_idx_width_sigsmall], y=tajima[tajima_idx][tajima_idx_width_sigsmall], cex=2, col="green")
+    ### standing genetic variation (red points)
+    points(x=x[tajima_idx][tajima_idx_width_siglarge], y=tajima[tajima_idx][tajima_idx_width_siglarge], cex=2, col="red")
+    ### troughs and peaks with significantly deviated Fst in the plot below
+    points(x=x[overlap_idx], y=tajima[overlap_idx], pch=1, cex=2, col="red")
+
+    plot(x=x, y=dfst, xaxt="n", main="Fst deviation from genomewide mean", xlab="", ylab="", type="l", las=2); grid()
+    axis(1, at=vec_chr_pos, label=vec_chr)
+    if (length(overlap_idx) > 0) {
+        text(x=x[overlap_idx], y=dfst[overlap_idx], cex=0.5, pos=2, label=labels[tajima_idx])
+    }
     dev.off()
-    
+
 }
 
 ```
