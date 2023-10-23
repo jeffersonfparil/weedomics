@@ -762,7 +762,12 @@ out = data.frame(evolution=c("convergent", "divergent"),
 write.table(out, file="gudmc_summary_results.csv", row.names=F, col.names=T, sep=",", quote=F)
 ```
 
-**MAJOR RESULT:** Across SE Australia, **standing genetic variation** is the source of glyphosate resistance, and **shared ancestry** is the predominant source of this genetic variation, and the migration of resistance alleles across populations is unlikely.
+### gudmc
+
+Across SE Australia:
+- **standing genetic variation** is the source of glyphosate resistance,
+- **shared ancestry** is the predominant source of this genetic variation, and 
+- migration of resistance alleles across populations is unlikely.
 
 
 Let's plot these results for some population pairs:
