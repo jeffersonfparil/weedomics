@@ -709,7 +709,7 @@ for (pop_a in unique(dat$pop_a)) {
         if ((y_pop_b < threshold_resistant_population) & (abs(y_pop_a-y_pop_b)>=50)) {
             next
         }
-        idx_sig_tajima_troughs = df$tajima_width_one_tail_pval_pop_b <= alpha
+        idx_sig_tajima_troughs = (df$tajima_d_pop_b < mean(df$tajima_d_pop_b)) & (df$tajima_width_one_tail_pval_pop_b <= alpha)
         tajima_width_minus_mean = df$tajima_width_pop_b - mean(df$tajima_width_pop_b, na.rm=TRUE)
         vec_pop_a = c(vec_pop_a, pop_a)
         vec_pop_b = c(vec_pop_b, pop_b)
@@ -766,7 +766,8 @@ write.table(out, file="gudmc_summary_results.csv", row.names=F, col.names=T, sep
 
 Across SE Australia:
 - **standing genetic variation** is the source of glyphosate resistance,
-- **shared ancestry** is the predominant source of this genetic variation, and 
+- **shared ancestry** is the predominant source of this genetic variation, 
+- **independendent emergence or selection** for glyphosate resistance-conferring loci may have some minor role, and 
 - migration of resistance alleles across populations is unlikely.
 
 
