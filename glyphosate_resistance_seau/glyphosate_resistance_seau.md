@@ -602,6 +602,8 @@ dev.off()
 
 ## Atlas of genomic signatures of selection
 
+### Tajima's D
+
 - We will use Tajima's D to assess genome-wide signatures of deviations to neutral expectations.
 - Tajima's D is computed per 10 kb non-overlapping windows per population.
 
@@ -650,7 +652,10 @@ for (pop0 in c("ACC001", "ACC039")) {
 ![tajimas_d](./res/tajima_d-maf0.0_cov10_win10kb-ACC039-ACC041.svg)
 ![tajimas_d](./res/tajima_d-maf0.0_cov10_win10kb-ACC039-ACC062.svg)
 
+### gudmc: genomewide unbiased discernment of modes of convergent and divergent evolution
+
 - Now, let's try a made-up approach which I call gudmc (**g**enomewide **u**nbiased **d**iscernment of **m**odes of **c**onvergent evolution)
+- The **dmc** is a pun on dmc.
 
 ```shell
 dir="/data-weedomics-1/weedomics/glyphosate_resistance_seau/res"
@@ -678,7 +683,8 @@ source("../src/data_loading_and_merging.r")
 setwd(dir)
 dat = read.csv("gudmc-maf0.0_cov10_win10kb_slide10kb_minlocwin10.csv")
 phen = LOAD_PHENOTYPES(fname_phenotype="phenotype_data.csv", batch="all", phenotype_names="Glyphosate")
-threshold_resistant_population = 0.5
+threshold_resistant_population = 75
+threshold_susceptible_population = 0
 alpha = 0.05
 
 vec_pop_a = c()
@@ -691,8 +697,12 @@ vec_n_significantly_narrower_tajima_troughs_in_pop_b = c()
 vec_n_significantly_wider_tajima_troughs_in_pop_b = c()
 vec_tajima_troughs_with_significantly_lower_pairwise_fst = c()
 vec_tajima_troughs_with_significantly_higher_pairwise_fst = c()
+pb = txtProgressBar(min=0, max=length(unique(dat$pop_a))*length(unique(dat$pop_b)), style=3)
+counter = 0
 for (pop_a in unique(dat$pop_a)) {
     for (pop_b in unique(dat$pop_b)) {
+        counter = counter + 1
+        setTxtProgressBar(pb, counter)
         # pop_a = unique(dat$pop_a)[1]; pop_b = unique(dat$pop_b)[93]
         if (pop_a == pop_b) {
             next
@@ -705,8 +715,10 @@ for (pop_a in unique(dat$pop_a)) {
         df = dat[((dat$pop_a==pop_a) & (dat$pop_b==pop_b)), ]
         y_pop_a = phen$Glyphosate[idx_phen_pop_a]
         y_pop_b = phen$Glyphosate[idx_phen_pop_b]
-        ### Use only population pairs where pop_b is resistant and the difference between resistance is at least 50%
-        if ((y_pop_b < threshold_resistant_population) & (abs(y_pop_a-y_pop_b)>=50)) {
+        ### Use only population pairs where pop_b is resistant and the difference between resistance is at least 50% (divergent evolution)
+        ### ... or if both populations are resistant (convergent evolution).
+        if (((y_pop_b < threshold_resistant_population) & (y_pop_a > threshold_susceptible_population)) | 
+            ((y_pop_b < threshold_resistant_population) & (y_pop_a < threshold_resistant_population))) {
             next
         }
         idx_sig_tajima_troughs = (df$tajima_d_pop_b < mean(df$tajima_d_pop_b)) & (df$tajima_width_one_tail_pval_pop_b <= alpha)
@@ -723,7 +735,7 @@ for (pop_a in unique(dat$pop_a)) {
         vec_tajima_troughs_with_significantly_higher_pairwise_fst = c(vec_tajima_troughs_with_significantly_higher_pairwise_fst, sum(idx_sig_tajima_troughs & (df$fst_delta_one_tail_pval <= alpha) & (df$fst_delta > 0)))
     }
 }
-
+close(pb)
 df_counts = data.frame(pop_a=vec_pop_a, pop_b=vec_pop_b, pop_a_resistant=vec_pop_a_resistant, pop_b_resistant=vec_pop_b_resistant, resistance_absolute_difference=vec_resistance_absolute_difference, n_tajima_troughs_in_pop_b=vec_n_tajima_troughs_in_pop_b, n_significantly_narrower_tajima_troughs_in_pop_b=vec_n_significantly_narrower_tajima_troughs_in_pop_b, n_significantly_wider_tajima_troughs_in_pop_b=vec_n_significantly_wider_tajima_troughs_in_pop_b, tajima_troughs_with_significantly_lower_pairwise_fst=vec_tajima_troughs_with_significantly_lower_pairwise_fst, tajima_troughs_with_significantly_higher_pairwise_fst=vec_tajima_troughs_with_significantly_higher_pairwise_fst)
 
 ### Convergent evolution
@@ -779,72 +791,94 @@ source("../src/data_loading_and_merging.r")
 setwd(dir)
 dat = read.csv("gudmc-maf0.0_cov10_win10kb_slide10kb_minlocwin10.csv")
 phen = LOAD_PHENOTYPES(fname_phenotype="phenotype_data.csv", batch="all", phenotype_names="Glyphosate")
-threshold_resistant_population = 0.5
+threshold_resistant_population = 75
+threshold_susceptible_population = 0
 alpha = 0.05
-
 
 vec_pop_a = sort(unique(dat$pop_a))
 vec_pop_b = sort(unique(dat$pop_b))
 
-i = 39
-j = 1
-idx = which((dat$pop_a == vec_pop_a[i]) & (dat$pop_b == vec_pop_b[j]))
-if (length(idx) > 0) {
-    df = dat[idx, ]
-    df = df[grepl("^NC", df$chr), ]
-    str(df)
-
-    vec_chr = unique(df$chr)
-    vec_chr_pos = c()
-    vec_consecutive_pos = c(0)
-    for (chr in vec_chr) {
-        # chr = vec_chr[1]
-        idx_chr = which(df$chr == chr)
-        vec_pos = df$pos_ini[idx_chr] + (df$pos_fin[idx_chr] - df$pos_ini[idx_chr])/2
-        vec_pos = vec_pos - min(vec_pos) + 1 + tail(vec_consecutive_pos, n=1)
-        vec_chr_pos = c(vec_chr_pos, median(vec_pos))
-        vec_consecutive_pos = c(vec_consecutive_pos, vec_pos)
+pb = txtProgressBar(min=0, max=length(vec_pop_a)*length(vec_pop_b), style=3)
+counter = 0
+for (pop_a in vec_pop_a) {
+    for(pop_b in vec_pop_b) {
+        counter = counter + 1
+        setTxtProgressBar(pb, counter)
+        # pop_a = vec_pop_a[1]; pop_b = vec_pop_a[39]
+        if ((floor(phen$Glyphosate[phen$X.Population==pop_a]) > threshold_susceptible_population) | 
+             (floor(phen$Glyphosate[phen$X.Population==pop_b]) < threshold_resistant_population)) {
+            next
+        }
+        idx = which((dat$pop_a == pop_a) & (dat$pop_b == pop_b))
+        if (length(idx) == 0) {
+            next
+        }
+        df = dat[idx, ]
+        df = df[grepl("^NC", df$chr), ]
+        vec_chr = unique(df$chr)
+        vec_chr_pos = c()
+        vec_consecutive_pos = c(0)
+        for (chr in vec_chr) {
+            # chr = vec_chr[1]
+            idx_chr = which(df$chr == chr)
+            vec_pos = df$pos_ini[idx_chr] + (df$pos_fin[idx_chr] - df$pos_ini[idx_chr])/2
+            vec_pos = vec_pos - min(vec_pos) + 1 + tail(vec_consecutive_pos, n=1)
+            vec_chr_pos = c(vec_chr_pos, median(vec_pos))
+            vec_consecutive_pos = c(vec_consecutive_pos, vec_pos)
+        }
+        vec_consecutive_pos = vec_consecutive_pos[-1]
+        df$vec_consecutive_pos = vec_consecutive_pos
+        x = df$vec_consecutive_pos
+        lod_threshold = -log10(0.01)
+        tajima = df$tajima_d_pop_b
+        dfst = df$fst_delta
+        tajima_pval = df$tajima_width_one_tail_pval_pop_b
+        dfst_pval = df$fst_delta_one_tail_pval
+        tajima_idx = which((-log10(tajima_pval) >= lod_threshold) & (tajima != 0))
+        dfst_idx = which((-log10(dfst_pval) >= lod_threshold) & (dfst != 0))
+        overlap_idx = which(((-log10(tajima_pval) >= lod_threshold) & (tajima != 0)) & ((-log10(dfst_pval) >= lod_threshold) & (dfst != 0)))
+        labels = paste0(df$chr, "_", df$pos_ini, "-", df$pos_fin)
+        svg(paste0("gudmc_plots-", pop_b, "_x_", pop_a, ".svg"), width=14, height=7)
+        layout(matrix(1:2, nrow=2, ncol=1))
+        plot(x=x, y=tajima, xaxt="n", main=paste0("Tajima's D (", pop_b, "[R])"), xlab="", ylab="", type="l", las=2); grid()
+        axis(1, at=vec_chr_pos, label=vec_chr)
+        ### significantly deviating Tajima's D width compared with the genomewide mean
+        tajima_idx_width_sigsmall = df$tajima_width_pop_b[tajima_idx] < mean(df$tajima_width_pop_b)
+        tajima_idx_width_siglarge = df$tajima_width_pop_b[tajima_idx] > mean(df$tajima_width_pop_b)
+        ### de novo mutation (green points)
+        points(x=x[tajima_idx][tajima_idx_width_sigsmall], y=tajima[tajima_idx][tajima_idx_width_sigsmall], cex=2, col="green")
+        ### standing genetic variation (red points)
+        points(x=x[tajima_idx][tajima_idx_width_siglarge], y=tajima[tajima_idx][tajima_idx_width_siglarge], cex=2, col="red")
+        ### troughs and peaks with significantly deviated Fst in the plot below
+        plot(x=x, y=dfst, xaxt="n", main=paste0("Fst deviation from genomewide mean\n(", pop_a, "[S] vs ", pop_b, "[R])"), xlab="", ylab="", type="l", las=2); grid()
+        axis(1, at=vec_chr_pos, label=vec_chr)
+        if (length(overlap_idx) > 0) {
+            text(x=x[overlap_idx], y=dfst[overlap_idx], cex=0.5, pos=2, label=labels[overlap_idx])
+            if (dfst[overlap_idx] > 0) {
+                points(x=x[overlap_idx], y=dfst[overlap_idx], col="blue")
+            } else if (dfst[overlap_idx] < 0) {
+                points(x=x[overlap_idx], y=dfst[overlap_idx], col="orange")
+            }
+        }
+        legend("topright", legend=c("de novo mutation (narrow Tajima'D)",
+                                    "standing genetic variabtion (wide Tajima's D)",
+                                    "independent emergence (higher than the mean Fst)",
+                                    "migration (lower than the mean Fst)",
+                                    "shared ancestry (~mean Fst, no colour)"),
+                           fill=c("green",
+                                  "red",
+                                  "blue",
+                                  "orange",
+                                  "white"), bty="n", cex=0.75)
+        dev.off()
     }
-    vec_consecutive_pos = vec_consecutive_pos[-1]
-    df$vec_consecutive_pos = vec_consecutive_pos
-    x = df$vec_consecutive_pos
-    lod_threshold = -log10(0.01)
-    tajima = df$tajima_d_pop_b
-    dfst = df$fst_delta
-    tajima_pval = df$tajima_width_one_tail_pval_pop_b
-    dfst_pval = df$fst_delta_one_tail_pval
-    tajima_idx = which((-log10(tajima_pval) >= lod_threshold) & (tajima != 0))
-    dfst_idx = which((-log10(dfst_pval) >= lod_threshold) & (dfst != 0))
-
-    overlap_idx = which(((-log10(tajima_pval) >= lod_threshold) & (tajima != 0)) & ((-log10(dfst_pval) >= lod_threshold) & (dfst != 0)))
-
-    labels = paste0(df$chr, "_", df$pos_ini, "-", df$pos_fin)
-    svg("test.svg", width=14, height=7)
-    layout(matrix(1:2, nrow=2, ncol=1))
-    plot(x=x, y=tajima, xaxt="n", main="Tajima's D", xlab="", ylab="", type="l", las=2); grid()
-    axis(1, at=vec_chr_pos, label=vec_chr)
-    ### significantly deviating Tajima's D width compared with the genomewide mean
-    tajima_idx_width_sigsmall = df$tajima_width_pop_b[tajima_idx] < mean(df$tajima_width_pop_b)
-    tajima_idx_width_siglarge = df$tajima_width_pop_b[tajima_idx] > mean(df$tajima_width_pop_b)
-    ### de novo mutation (green points)
-    points(x=x[tajima_idx][tajima_idx_width_sigsmall], y=tajima[tajima_idx][tajima_idx_width_sigsmall], cex=2, col="green")
-    ### standing genetic variation (red points)
-    points(x=x[tajima_idx][tajima_idx_width_siglarge], y=tajima[tajima_idx][tajima_idx_width_siglarge], cex=2, col="red")
-    ### troughs and peaks with significantly deviated Fst in the plot below
-    points(x=x[overlap_idx], y=tajima[overlap_idx], pch=1, cex=2, col="red")
-
-    plot(x=x, y=dfst, xaxt="n", main="Fst deviation from genomewide mean", xlab="", ylab="", type="l", las=2); grid()
-    axis(1, at=vec_chr_pos, label=vec_chr)
-    if (length(overlap_idx) > 0) {
-        text(x=x[overlap_idx], y=dfst[overlap_idx], cex=0.5, pos=2, label=labels[tajima_idx])
-    }
-    dev.off()
-
 }
+close(pb)
 
 ```
 
-![test](res/test.svg)
+![test](res/gudmc_plots-ACC041_x_ACC001.svg)
+![test](res/gudmc_plots-ACC062_x_ACC058.svg)
 
 
 

@@ -3,7 +3,8 @@ source("../src/data_loading_and_merging.r")
 setwd(dir)
 dat = read.csv("gudmc-maf0.0_cov10_win10kb_slide10kb_minlocwin10.csv")
 phen = LOAD_PHENOTYPES(fname_phenotype="phenotype_data.csv", batch="all", phenotype_names="Glyphosate")
-threshold_resistant_population = 0.5
+threshold_resistant_population = 75
+threshold_susceptible_population = 0
 alpha = 0.05
 
 vec_pop_a = c()
@@ -16,8 +17,12 @@ vec_n_significantly_narrower_tajima_troughs_in_pop_b = c()
 vec_n_significantly_wider_tajima_troughs_in_pop_b = c()
 vec_tajima_troughs_with_significantly_lower_pairwise_fst = c()
 vec_tajima_troughs_with_significantly_higher_pairwise_fst = c()
+pb = txtProgressBar(min=0, max=length(unique(dat$pop_a))*length(unique(dat$pop_b)), style=3)
+counter = 0
 for (pop_a in unique(dat$pop_a)) {
     for (pop_b in unique(dat$pop_b)) {
+        counter = counter + 1
+        setTxtProgressBar(pb, counter)
         # pop_a = unique(dat$pop_a)[1]; pop_b = unique(dat$pop_b)[93]
         if (pop_a == pop_b) {
             next
@@ -30,8 +35,10 @@ for (pop_a in unique(dat$pop_a)) {
         df = dat[((dat$pop_a==pop_a) & (dat$pop_b==pop_b)), ]
         y_pop_a = phen$Glyphosate[idx_phen_pop_a]
         y_pop_b = phen$Glyphosate[idx_phen_pop_b]
-        ### Use only population pairs where pop_b is resistant and the difference between resistance is at least 50%
-        if ((y_pop_b < threshold_resistant_population) & (abs(y_pop_a-y_pop_b)>=50)) {
+        ### Use only population pairs where pop_b is resistant and the difference between resistance is at least 50% (divergent evolution)
+        ### ... or if both populations are resistant (convergent evolution).
+        if (((y_pop_b < threshold_resistant_population) & (y_pop_a > threshold_susceptible_population)) | 
+            ((y_pop_b < threshold_resistant_population) & (y_pop_a < threshold_resistant_population))) {
             next
         }
         idx_sig_tajima_troughs = (df$tajima_d_pop_b < mean(df$tajima_d_pop_b)) & (df$tajima_width_one_tail_pval_pop_b <= alpha)
@@ -48,7 +55,7 @@ for (pop_a in unique(dat$pop_a)) {
         vec_tajima_troughs_with_significantly_higher_pairwise_fst = c(vec_tajima_troughs_with_significantly_higher_pairwise_fst, sum(idx_sig_tajima_troughs & (df$fst_delta_one_tail_pval <= alpha) & (df$fst_delta > 0)))
     }
 }
-
+close(pb)
 df_counts = data.frame(pop_a=vec_pop_a, pop_b=vec_pop_b, pop_a_resistant=vec_pop_a_resistant, pop_b_resistant=vec_pop_b_resistant, resistance_absolute_difference=vec_resistance_absolute_difference, n_tajima_troughs_in_pop_b=vec_n_tajima_troughs_in_pop_b, n_significantly_narrower_tajima_troughs_in_pop_b=vec_n_significantly_narrower_tajima_troughs_in_pop_b, n_significantly_wider_tajima_troughs_in_pop_b=vec_n_significantly_wider_tajima_troughs_in_pop_b, tajima_troughs_with_significantly_lower_pairwise_fst=vec_tajima_troughs_with_significantly_lower_pairwise_fst, tajima_troughs_with_significantly_higher_pairwise_fst=vec_tajima_troughs_with_significantly_higher_pairwise_fst)
 
 ### Convergent evolution
