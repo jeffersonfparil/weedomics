@@ -1,0 +1,339 @@
+axis                 package:graphics                  R Documentation
+
+_A_d_d _a_n _A_x_i_s _t_o _a _P_l_o_t
+
+_D_e_s_c_r_i_p_t_i_o_n:
+
+     Adds an axis to the current plot, allowing the specification of
+     the side, position, labels, and other options.
+
+_U_s_a_g_e:
+
+     axis(side, at = NULL, labels = TRUE, tick = TRUE, line = NA,
+          pos = NA, outer = FALSE, font = NA, lty = "solid",
+          lwd = 1, lwd.ticks = lwd, col = NULL, col.ticks = NULL,
+          hadj = NA, padj = NA, gap.axis = NA, ...)
+     
+_A_r_g_u_m_e_n_t_s:
+
+    side: an integer specifying which side of the plot the axis is to
+          be drawn on.  The axis is placed as follows: 1=below, 2=left,
+          3=above and 4=right.
+
+      at: the points at which tick-marks are to be drawn.  Non-finite
+          (infinite, ‘NaN’ or ‘NA’) values are omitted.  By default
+          (when ‘NULL’) tickmark locations are computed, see ‘Details’
+          below.
+
+  labels: this can either be a logical value specifying whether
+          (numerical) annotations are to be made at the tickmarks, or a
+          character or expression vector of labels to be placed at the
+          tickpoints.  (Other objects are coerced by
+          ‘as.graphicsAnnot’.)  If this is not logical, ‘at’ should
+          also be supplied and of the same length.  If ‘labels’ is of
+          length zero after coercion, it has the same effect as
+          supplying ‘TRUE’.
+
+    tick: a logical value specifying whether tickmarks and an axis line
+          should be drawn.
+
+    line: the number of lines into the margin at which the axis line
+          will be drawn, if not ‘NA’.
+
+     pos: the coordinate at which the axis line is to be drawn: if not
+          ‘NA’ this overrides the value of ‘line’.
+
+   outer: a logical value indicating whether the axis should be drawn
+          in the outer plot margin, rather than the standard plot
+          margin.
+
+    font: font for text.  Defaults to ‘par("font")’.
+
+     lty: line type for both the axis line and the tick marks.
+
+lwd, lwd.ticks: line widths for the axis line and the tick marks.  Zero
+          or negative values will suppress the line or ticks.
+
+col, col.ticks: colors for the axis line and the tick marks
+          respectively.  ‘col = NULL’ means to use ‘par("fg")’,
+          possibly specified inline, and ‘col.ticks = NULL’ means to
+          use whatever color ‘col’ resolved to.
+
+    hadj: adjustment (see ‘par("adj")’) for all labels _parallel_
+          (‘horizontal’) to the reading direction.  If this is not a
+          finite value, the default is used (centring for strings
+          parallel to the axis, justification of the end nearest the
+          axis otherwise).
+
+    padj: adjustment for each tick label _perpendicular_ to the reading
+          direction.  For labels parallel to the axes, ‘padj = 0’ means
+          right or top alignment, and ‘padj = 1’ means left or bottom
+          alignment.  This can be a vector given a value for each
+          string, and will be recycled as necessary.
+
+          If ‘padj’ is not a finite value (the default), the value of
+          ‘par("las")’ determines the adjustment.  For strings plotted
+          perpendicular to the axis the default is to centre the
+          string.
+
+gap.axis: an optional (typically non-negative) numeric factor to be
+          multiplied with the size of an ‘m’ to determine the minimal
+          gap between labels that are drawn, see ‘Details’.  The
+          default, ‘NA’, corresponds to ‘1’ for tick labels drawn
+          _parallel_ to the axis and ‘0.25’ otherwise, i.e., the
+          default is equivalent to
+
+            perpendicular <- function(side, las) {
+              is.x <- (side %% 2 == 1) # is horizontal x-axis
+              ( is.x && (las %in% 2:3)) ||
+              (!is.x && (las %in% 1:2))
+            }
+            gap.axis <- if(perpendicular(side, las)) 0.25 else 1
+          
+          ‘gap.axis’ may typically be relevant when ‘at = ..’ tick-mark
+          positions are specified explicitly.
+
+     ...: other graphical parameters may also be passed as arguments to
+          this function, particularly, ‘cex.axis’, ‘col.axis’ and
+          ‘font.axis’ for axis annotation, i.e. tick labels, ‘mgp’ and
+          ‘xaxp’ or ‘yaxp’ for positioning, ‘tck’ or ‘tcl’ for tick
+          mark length and direction, ‘las’ for vertical/horizontal
+          label orientation, or ‘fg’ instead of ‘col’, and ‘xpd’ for
+          clipping.  See ‘par’ on these.
+
+          Parameters ‘xaxt’ (sides 1 and 3) and ‘yaxt’ (sides 2 and 4)
+          control if the axis is plotted at all.
+
+          Note that ‘lab’ will partial match to argument ‘labels’
+          unless the latter is also supplied.  (Since the default axes
+          have already been set up by ‘plot.window’, ‘lab’ will not be
+          acted on by ‘axis’.)
+
+_D_e_t_a_i_l_s:
+
+     The axis line is drawn from the lowest to the highest value of
+     ‘at’, but will be clipped at the plot region.  By default, only
+     ticks which are drawn from points within the plot region (up to a
+     tolerance for rounding error) are plotted, but the ticks and their
+     labels may well extend outside the plot region.  Use ‘xpd = TRUE’
+     or ‘xpd = NA’ to allow axes to extend further.
+
+     When ‘at = NULL’, pretty tick mark locations are computed
+     internally (the same way ‘axTicks(side)’ would) from ‘par("xaxp")’
+     or ‘"yaxp"’ and ‘par("xlog")’ (or ‘"ylog"’).  Note that these
+     locations may change if an on-screen plot is resized (for example,
+     if the ‘plot’ argument ‘asp’ (see ‘plot.window’) is set.)
+
+     If ‘labels’ is not specified, the numeric values supplied or
+     calculated for ‘at’ are converted to character strings as if they
+     were a numeric vector printed by ‘print.default(digits = 7)’.
+
+     The code tries hard not to draw overlapping tick labels, and so
+     will omit labels where they would abut or overlap previously drawn
+     labels.  This can result in, for example, every other tick being
+     labelled.  The ticks are drawn left to right or bottom to top, and
+     space at least the size of an ‘m’, multiplied by ‘gap.axis’, is
+     left between labels.  In previous R versions, this applied only
+     for labels written _parallel_ to the axis direction, hence not for
+     e.g., ‘las = 2’.  Using ‘gap.axis = -1’ restores that (buggy)
+     previous behaviour (in the perpendicular case).
+
+     If either ‘line’ or ‘pos’ is set, they (rather than
+     ‘par("mgp")[3]’) determine the position of the axis line and tick
+     marks, and the tick labels are placed ‘par("mgp")[2]’ further
+     lines into (or towards for ‘pos’) the margin.
+
+     Several of the graphics parameters affect the way axes are drawn.
+     The vertical (for sides 1 and 3) positions of the axis and the
+     tick labels are controlled by ‘mgp[2:3]’ and ‘mex’, the size and
+     direction of the ticks is controlled by ‘tck’ and ‘tcl’ and the
+     appearance of the tick labels by ‘cex.axis’, ‘col.axis’ and
+     ‘font.axis’ with orientation controlled by ‘las’ (but not ‘srt’,
+     unlike S which uses ‘srt’ if ‘at’ is supplied and ‘las’ if it is
+     not).  Note that ‘adj’ is not supported and labels are always
+     centered.  See ‘par’ for details.
+
+_V_a_l_u_e:
+
+     The numeric locations on the axis scale at which tick marks were
+     drawn when the plot was first drawn (see ‘Details’).
+
+     This function is usually invoked for its side effect, which is to
+     add an axis to an already existing plot.
+
+_R_e_f_e_r_e_n_c_e_s:
+
+     Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988) _The New S
+     Language_.  Wadsworth & Brooks/Cole.
+
+_S_e_e _A_l_s_o:
+
+     ‘Axis’ for a generic interface.
+
+     ‘axTicks’ returns the axis tick locations corresponding to ‘at =
+     NULL’; ‘pretty’ is more flexible for computing pretty tick
+     coordinates and does _not_ depend on (nor adapt to) the coordinate
+     system in use.
+
+     Several graphics parameters affecting the appearance are
+     documented in ‘par’.
+
+_E_x_a_m_p_l_e_s:
+
+     require(stats) # for rnorm
+     plot(1:4, rnorm(4), axes = FALSE)
+     axis(1, 1:4, LETTERS[1:4])
+     axis(2)
+     box() #- to make it look "as usual"
+     
+     plot(1:7, rnorm(7), main = "axis() examples",
+          type = "s", xaxt = "n", frame.plot = FALSE, col = "red")
+     axis(1, 1:7, LETTERS[1:7], col.axis = "blue")
+     # unusual options:
+     axis(4, col = "violet", col.axis = "dark violet", lwd = 2)
+     axis(3, col = "gold", lty = 2, lwd = 0.5)
+     
+     # one way to have a custom x axis
+     plot(1:10, xaxt = "n")
+     axis(1, xaxp = c(2, 9, 7))
+     
+     ## Changing default gap between labels:
+     plot(0:100, type="n", axes=FALSE, ann=FALSE)
+     title(quote("axis(1, .., gap.axis = f)," ~~ f >= 0))
+     axis(2, at = 5*(0:20), las = 1, gap.axis = 1/4)
+     gaps <- c(4, 2, 1, 1/2, 1/4, 0.1, 0)
+     chG <- paste0(ifelse(gaps == 1, "default:  ", ""),
+                   "gap.axis=", formatC(gaps))
+     jj <- seq_along(gaps)
+     linG <- -2.5*(jj-1)
+     for(j in jj) {
+         isD <- gaps[j] == 1 # is default
+         axis (1, at=5*(0:20), gap.axis = gaps[j], padj=-1, line = linG[j],
+               col.axis = if(isD) "forest green" else 1, font.axis= 1+isD)
+     }
+     mtext(chG, side=1, padj=-1, line = linG -1/2, cex=3/4,
+           col = ifelse(gaps == 1, "forest green", "blue3"))
+     ## now shrink the window (in x- and y-direction) and observe the axis labels drawn
+     
+
+mtext                 package:graphics                 R Documentation
+
+_W_r_i_t_e _T_e_x_t _i_n_t_o _t_h_e _M_a_r_g_i_n_s _o_f _a _P_l_o_t
+
+_D_e_s_c_r_i_p_t_i_o_n:
+
+     Text is written in one of the four margins of the current figure
+     region or one of the outer margins of the device region.
+
+_U_s_a_g_e:
+
+     mtext(text, side = 3, line = 0, outer = FALSE, at = NA,
+           adj = NA, padj = NA, cex = NA, col = NA, font = NA, ...)
+     
+_A_r_g_u_m_e_n_t_s:
+
+    text: a character or expression vector specifying the _text_ to be
+          written.  Other objects are coerced by ‘as.graphicsAnnot’.
+
+    side: on which side of the plot (1=bottom, 2=left, 3=top, 4=right).
+
+    line: on which MARgin line, starting at 0 counting outwards.
+
+   outer: use outer margins if available.
+
+      at: give location of each string in user coordinates.  If the
+          component of ‘at’ corresponding to a particular text item is
+          not a finite value (the default), the location will be
+          determined by ‘adj’.
+
+     adj: adjustment for each string in reading direction.  For strings
+          parallel to the axes, ‘adj = 0’ means left or bottom
+          alignment, and ‘adj = 1’ means right or top alignment.
+
+          If ‘adj’ is not a finite value (the default), the value of
+          ‘par("las")’ determines the adjustment.  For strings plotted
+          parallel to the axis the default is to centre the string.
+
+    padj: adjustment for each string perpendicular to the reading
+          direction (which is controlled by ‘adj’).  For strings
+          parallel to the axes, ‘padj = 0’ means right or top
+          alignment, and ‘padj = 1’ means left or bottom alignment.
+
+          If ‘padj’ is not a finite value (the default), the value of
+          ‘par("las")’ determines the adjustment.  For strings plotted
+          perpendicular to the axis the default is to centre the
+          string.
+
+     cex: character expansion factor.  ‘NULL’ and ‘NA’ are equivalent
+          to ‘1.0’.  This is an absolute measure, not scaled by
+          ‘par("cex")’ or by setting ‘par("mfrow")’ or ‘par("mfcol")’.
+          Can be a vector.
+
+     col: color to use.  Can be a vector.  ‘NA’ values (the default)
+          mean use ‘par("col")’.
+
+    font: font for text.  Can be a vector.  ‘NA’ values (the default)
+          mean use ‘par("font")’.
+
+     ...: Further graphical parameters (see ‘par’), including ‘family’,
+          ‘las’ and ‘xpd’. (The latter defaults to the figure region
+          unless ‘outer = TRUE’, otherwise the device region.  It can
+          only be increased.)
+
+_D_e_t_a_i_l_s:
+
+     The user coordinates in the outer margins always range from zero
+     to one, and are not affected by the user coordinates in the figure
+     region(s) - R differs here from other implementations of S.
+
+     All of the named arguments can be vectors, and recycling will take
+     place to plot as many strings as the longest of the vector
+     arguments.
+
+     Note that a vector ‘adj’ has a different meaning from ‘text’.
+     ‘adj = 0.5’ will centre the string, but for ‘outer = TRUE’ on the
+     device region rather than the plot region.
+
+     Parameter ‘las’ will determine the orientation of the string(s).
+     For strings plotted perpendicular to the axis the default
+     justification is to place the end of the string nearest the axis
+     on the specified line.  (Note that this differs from S, which uses
+     ‘srt’ if ‘at’ is supplied and ‘las’ if it is not.  Parameter ‘srt’
+     is ignored in R.)
+
+     Note that if the text is to be plotted perpendicular to the axis,
+     ‘adj’ determines the justification of the string _and_ the
+     position along the axis unless ‘at’ is specified.
+
+     Graphics parameter ‘"ylbias"’ (see ‘par’) determines how the text
+     baseline is placed relative to the nominal line.
+
+_S_i_d_e _E_f_f_e_c_t_s:
+
+     The given text is written onto the current plot.
+
+_R_e_f_e_r_e_n_c_e_s:
+
+     Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988) _The New S
+     Language_.  Wadsworth & Brooks/Cole.
+
+_S_e_e _A_l_s_o:
+
+     ‘title’, ‘text’, ‘plot’, ‘par’; ‘plotmath’ for details on
+     mathematical annotation.
+
+_E_x_a_m_p_l_e_s:
+
+     plot(1:10, (-4:5)^2, main = "Parabola Points", xlab = "xlab")
+     mtext("10 of them")
+     for(s in 1:4)
+         mtext(paste("mtext(..., line= -1, {side, col, font} = ", s,
+               ", cex = ", (1+s)/2, ")"), line = -1,
+               side = s, col = s, font = s, cex = (1+s)/2)
+     mtext("mtext(..., line= -2)", line = -2)
+     mtext("mtext(..., line= -2, adj = 0)", line = -2, adj = 0)
+     ##--- log axis :
+     plot(1:10, exp(1:10), log = "y", main = "log =\"y\"", xlab = "xlab")
+     for(s in 1:4) mtext(paste("mtext(...,side=", s ,")"), side = s)
+     
+

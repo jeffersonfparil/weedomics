@@ -37,8 +37,7 @@ for (pop_a in unique(dat$pop_a)) {
         y_pop_b = phen$Glyphosate[idx_phen_pop_b]
         ### Use only population pairs where pop_b is resistant and the difference between resistance is at least 50% (divergent evolution)
         ### ... or if both populations are resistant (convergent evolution).
-        if (((y_pop_b < threshold_resistant_population) & (y_pop_a > threshold_susceptible_population)) | 
-            ((y_pop_b < threshold_resistant_population) & (y_pop_a < threshold_resistant_population))) {
+        if ((y_pop_b < threshold_resistant_population) & (y_pop_a < threshold_resistant_population)) {
             next
         }
         idx_sig_tajima_troughs = (df$tajima_d_pop_b < mean(df$tajima_d_pop_b)) & (df$tajima_width_one_tail_pval_pop_b <= alpha)
