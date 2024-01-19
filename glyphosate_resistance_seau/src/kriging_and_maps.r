@@ -46,7 +46,7 @@ LOAD_AND_DEFINE_REGION = function(fname_region_kml="../res/landscape.kml", fname
           )
 }
 
-KRIGING_AND_LINEAR_MODELS = function(REGION) {
+KRIGING_AND_LINEAR_MODELS = function(REGION, minimum_variance=1e-7) {
     # REGION = LOAD_AND_DEFINE_REGION()
     vec_models = c("Ste", "Mat", "Sph", "Exp", "Gau")
     K1 = tryCatch(autoKrige.cv(z ~ 1, model=vec_models[1], REGION$df_data), error=function(e){autoKrige.cv(z ~ 1, REGION$df_data)})
@@ -81,12 +81,17 @@ KRIGING_AND_LINEAR_MODELS = function(REGION) {
     P[P[,3] > 100, 3] = 100
     colnames(P) = c("x", "y", "z") ### coordinates from the sampled points inside the paddock polygon and the krigng-predicted values, z
     ### Centre coordinates so that we can better account for the interaction effect
-    x_centred = scale(REGION$df_data$x, center=TRUE, scale=FALSE)
-    y_centred = scale(REGION$df_data$y, center=TRUE, scale=FALSE)
-    z = REGION$df_data$z
+    x_centred = scale(P$x, center=TRUE, scale=TRUE)
+    y_centred = scale(P$y, center=TRUE, scale=TRUE)
+    z = P$z
     ### Model the herbicide gradient across the landscape
     mod = lm(z ~ x_centred + y_centred + (x_centred:y_centred))
+    anova = data.frame(anova(mod))
     coef_summary = as.data.frame(summary(mod)$coefficients)
+    if (tail(anova$`Sum.Sq`, 1) < minimum_variance) {
+        ### If there is no variation in z set significance to zero
+        coef_summary[[4]] = 1.00
+    }
     sig = c()
     for (i in 1:nrow(coef_summary)){
         if (coef_summary[[4]][i] < 0.001) {
@@ -106,10 +111,12 @@ KRIGING_AND_LINEAR_MODELS = function(REGION) {
           )
 }
 
-PLOT_DISTRIBUTION_MAP = function(REGION, MODELS, fname_map_svg="../res/Glyphosate_resistance_distribution_SE_Australia.svg", label="Resistance (%)", 
+PLOT_DISTRIBUTION_MAP = function(REGION, MODELS, x_limit=c(), y_limit=c(), fname_map_svg="../res/Glyphosate_resistance_distribution_SE_Australia.svg", label="Resistance (%)", 
     colours = list(rdylgn=rev(c("#A50026","#D73027","#F46D43","#FDAE61","#FEE08B","#FFFFBF","#D9EF8B","#A6D96A","#66BD63","#1A9850","#006837")),
                    spectral=rev(c("#9e0142","#d53e4f","#f46d43","#fdae61","#fee08b","#ffffbf","#e6f598","#abdda4","#66c2a5","#3288bd","#5e4fa2")))[[1]], 
-    n_colours=101, plot_points=TRUE, plot_krig=TRUE, rescale_krig=FALSE, hist_not_range=TRUE) {
+    point_colours = list(rdylgn=rev(c("#A50026","#D73027","#F46D43","#FDAE61","#FEE08B","#FFFFBF","#D9EF8B","#A6D96A","#66BD63","#1A9850","#006837")),
+                   spectral=rev(c("#9e0142","#d53e4f","#f46d43","#fdae61","#fee08b","#ffffbf","#e6f598","#abdda4","#66c2a5","#3288bd","#5e4fa2")))[[1]], 
+    n_colours=101, plot_points=TRUE, plot_krig=TRUE, rescale_krig=FALSE, minimum_range=0.0001, hist_not_range=TRUE) {
 
     # REGION = LOAD_AND_DEFINE_REGION()
     # MODELS = KRIGING_AND_LINEAR_MODELS(REGION)
@@ -118,8 +125,12 @@ PLOT_DISTRIBUTION_MAP = function(REGION, MODELS, fname_map_svg="../res/Glyphosat
     x = REGION$df_data$x
     y = REGION$df_data$y
     z = REGION$df_data$z
-    x_limit = range(x)
-    y_limit = range(y)
+    if (length(x_limit)==0) {
+        x_limit = range(x)
+    }
+    if (length(y_limit)==0) {
+        y_limit = range(y)
+    }
     vec_colours = colorRampPalette(colours)(n_colours)
     # width  = 6 * (diff(x_limit) / diff(y_limit))
     # height = 6 * 1
@@ -146,12 +157,11 @@ PLOT_DISTRIBUTION_MAP = function(REGION, MODELS, fname_map_svg="../res/Glyphosat
     maximum = max(MODELS$df_kriged[, 3], na.rm=TRUE)
     if (plot_krig==TRUE) {
         if (rescale_krig==TRUE) {
-            if ((maximum - minimum) > 1e-7) {
+            if ((maximum - minimum) > minimum_range) {
                 MODELS$df_kriged[, 3] = 100 * (MODELS$df_kriged[, 3] - minimum) / (maximum - minimum)
             } else {
                 MODELS$df_kriged[, 3] = 50 ### set to mid colours if there is no variation in the kriged resistance levels
             }
-            
         }
         for (k in 1:nrow(MODELS$df_kriged)){
             # k = 1
@@ -163,43 +173,52 @@ PLOT_DISTRIBUTION_MAP = function(REGION, MODELS, fname_map_svg="../res/Glyphosat
     }
     ### Plot populations and their resistance levels
     if (plot_points==TRUE) {
+        vec_point_colours = colorRampPalette(point_colours)(n_colours)
         for (i in 1:length(x)) {
             idx = ceiling(z[i]) + 1
-            points(x[i], y[i], col="gray", bg=vec_colours[idx], pch=21)
+            points(x[i], y[i], col="gray", bg=vec_point_colours[idx], pch=21)
         }
     }
     ### Heatmap legend
-    nclass=10
-    if (hist_not_range==TRUE) {
-        par(fig=c(0.77,0.97,0.3,0.5), new=TRUE)
-        par(mar=c(0,1,1,1))
-        plot(0, ylab= "", xlab="", xaxt="n", yaxt="n", type="n")
-        par(new=TRUE)
-        df_table = data.frame(bins=seq(0, 100, length=11), counts=rep(0, times=11))
-        for (i in 2:nrow(df_table)) {
-            # i = 2
-            df_table[i, 2] = sum((z >= df_table[i-1, 1]) & (z < df_table[i, 1]))
-        }
-        barplot(df_table$counts[2:nrow(df_table)], col=vec_colours[seq(1, n_colours, length=nclass)], bord=FALSE, las=1)
-        par(fig=c(0.77,0.97,0.27,0.29), new=TRUE)
-        par(mar=c(0,1,0,1))
-        h = hist(seq(0,100, length=10), ylab= "", xlab="", xaxt="n", yaxt="n", las=1, main="", nclass=nclass, 
-                    col=vec_colours[seq(1, n_colours, length=10)],
-                    bord=FALSE)
-        xrange = round(seq(h$breaks[1], h$breaks[length(h$breaks)], len=5), 2)
-        labels = xrange
-        axis(side=1, at=xrange, labels=labels, padj=-1)
-        mtext(label, side=1, padj=2.5)
+    if ((maximum - minimum) < minimum_range) {
+            text(x=x_limit[2], y=y_limit[1], paste0(label, " = ", round(minimum, 2), "%"))
     } else {
-        par(fig=c(0.77,0.97,0.40,0.50), new=TRUE)
-        par(mar=c(1,1,1,1))
-        h = hist(seq(0,100, length=10), ylab= "", xlab="", xaxt="n", yaxt="n", las=1, main="", nclass=nclass, 
-                    col=vec_colours[seq(1, n_colours, length=10)],
-                    bord=FALSE)
-        xrange = round(seq(h$breaks[1], h$breaks[length(h$breaks)], len=5))
-        labels = round(seq(minimum, maximum, len=5))
-        axis(side=1, at=xrange, labels=labels, padj=-1)
-        mtext(label, side=1, padj=2.5)
+        nclass=10
+        if (hist_not_range==TRUE) {
+            par(fig=c(0.77,0.97,0.3,0.5), new=TRUE)
+            par(mar=c(0,1,1,1))
+            plot(0, ylab= "", xlab="", xaxt="n", yaxt="n", type="n")
+            par(new=TRUE)
+            df_table = data.frame(bins=seq(0, 100, length=11), counts=rep(0, times=11))
+            for (i in 2:nrow(df_table)) {
+                # i = 2
+                df_table[i, 2] = sum((z >= df_table[i-1, 1]) & (z < df_table[i, 1]))
+            }
+            barplot(df_table$counts[2:nrow(df_table)], col=vec_colours[seq(1, n_colours, length=nclass)], bord=FALSE, las=1)
+            par(fig=c(0.77,0.97,0.27,0.29), new=TRUE)
+            par(mar=c(0,1,0,1))
+            h = hist(seq(0,100, length=10), ylab= "", xlab="", xaxt="n", yaxt="n", las=1, main="", nclass=nclass, 
+                        col=vec_colours[seq(1, n_colours, length=10)],
+                        bord=FALSE)
+            xrange = round(seq(h$breaks[1], h$breaks[length(h$breaks)], len=5), 2)
+            labels = xrange
+            axis(side=1, at=xrange, labels=labels, padj=-1)
+            mtext(label, side=1, padj=2.5)
+        } else {
+            par(fig=c(0.70,0.95,0.40,0.50), new=TRUE)
+            par(mar=c(1,1,1,1))
+            h = hist(seq(0,100, length=10), ylab= "", xlab="", xaxt="n", yaxt="n", las=1, main="", nclass=nclass, 
+                        col=vec_colours[seq(1, n_colours, length=10)],
+                        bord=FALSE)
+            xrange = round(seq(h$breaks[1], h$breaks[length(h$breaks)], len=5))
+            if ((maximum-minimum) < 10) {
+                labels = round(seq(minimum, maximum, len=5), 2)
+            } else {
+                labels = round(seq(minimum, maximum, len=5))
+            }
+            axis(side=1, at=xrange, labels=labels, padj=-1)
+            mtext(label, side=1, padj=2.5)
+        }
     }
     dev.off()
     return(fname_map_svg)
