@@ -321,8 +321,8 @@ KFOLD_CV = function(x, y, r=5, k=10) {
                                 bayesc = tryCatch(BAYESC(x, y, idx_train, idx_test), error=function(e){NA})
                                 return(list(ols=ols, lasso=lasso, ridge=ridge, elastic=elastic, bayesa=bayesa, bayesb=bayesb, bayesc=bayesc))
                             }, mc.cores=parallel::detectCores())
-    vec_models = c("ols", "lasso", "ridge", "elastic", "basyesa", "basyesb", "basyesc")
-    for (model in vec_models)
+    vec_models = c("ols", "lasso", "ridge", "elastic", "bayesa", "bayesb", "bayesc")
+    for (model in vec_models) {
         eval(parse(text=paste0(model, " = list()")))
         for (rep in 1:r) {
             eval(parse(text=paste0(model, "$rep_", rep, " = list()")))
@@ -330,6 +330,7 @@ KFOLD_CV = function(x, y, r=5, k=10) {
                 eval(parse(text=paste0(model, "$rep_", rep, "$fold_", fold, " = perf$`", rep, "-", fold, "`$", model)))
             }
         }
+    }
     out = list(ols=ols,
                 lasso=lasso,
                 ridge=ridge,

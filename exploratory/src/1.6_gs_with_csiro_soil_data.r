@@ -21,6 +21,9 @@ vec_names_phenotypes = vec_names_phenotypes[!(vec_names_phenotypes %in% vec_name
 
 for (herbi in vec_names_phenotypes) {
     # herbi = vec_names_phenotypes[2]
+    print("########################")
+    print(herbi)
+    
     df_phenotype = LOAD_PHENOTYPES(fname_phenotype=fname_phenotype, batch="all", phenotype_names=herbi)
     df_phenotype = merge(df_phenotype, df_covariates_csiro_soil_data, by="X.Population")
     df = MERGE_PHENOTYPE_WITH_GENOTYPE_AND_ENVIRONMENTAL_DATA(df_phenotype=df_phenotype, df_genotype=df_genotype, raster_layers=raster_layers)
@@ -58,7 +61,7 @@ for (herbi in vec_names_phenotypes) {
     end_time = Sys.time()
     print(end_time - start_time)
 
-    vec_models = c("ols", "lasso", "ridge", "elastic", "basyesa", "basyesb", "basyesc")
+    vec_models = c("ols", "lasso", "ridge", "elastic", "bayesa", "bayesb", "bayesc")
     col_bars = rgb(0.1, 0.1, 0.1, alpha=0.5)
     col_points = rgb(0.9, 0.2, 0.1, alpha=0.5)
     col_line = rgb(0.9, 0.2, 0.1, alpha=0.5)
