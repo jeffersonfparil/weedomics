@@ -1,14 +1,4 @@
-cv = function(j,
-              predictors_idx,
-              response_idx,
-              nreps=nreps,
-              nfolds=nfolds,
-              phenotypes=phenotypes,
-              plot_max_rmse=1.0,
-              plot_min_corr=0.5,
-              plot_min_y_range=50,
-              svg_prefix="phenotype_to_phenotype_prediction") {
-    
+cv = function(j, predictors_idx, response_idx, nreps=nreps, nfolds=nfolds, phenotypes=phenotypes, plot_max_rmse=1.0, plot_min_corr=0.5, plot_min_y_range=50, svg_prefix="phenotype_to_phenotype_prediction") {
     y_name = colnames(phenotypes)[response_idx]
     X_names = colnames(phenotypes)[predictors_idx[,j]]
 
@@ -257,6 +247,37 @@ ELASTIC = function(x, y, idx_train, idx_test) {
     return(out)
 }
 
+BAYESA = function(x, y, idx_train, idx_test) {
+    prefix = paste0("BayesA_", gsub(" ", "", date()), round(runif(1)*1e9), "-")
+    y_new = y
+    y_new[idx_test] = NA
+    fit = BGLR::BGLR(y=y_new, ETA=list(list(X=x, model='BayesA')), nIter=6000,burnIn=1000, saveAt=prefix, verbose=FALSE)
+    out = PERF(y[idx_test], fit$yHat[idx_test])
+    out$idx_test = idx_test
+    return(out)
+}
+
+BAYESB = function(x, y, idx_train, idx_test) {
+    prefix = paste0("BayesB_", gsub(" ", "", date()), round(runif(1)*1e9), "-")
+    y_new = y
+    y_new[idx_test] = NA
+    fit = BGLR::BGLR(y=y_new, ETA=list(list(X=x, model='BayesB')), nIter=6000,burnIn=1000, saveAt=prefix, verbose=FALSE)
+    out = PERF(y[idx_test], fit$yHat[idx_test])
+    out$idx_test = idx_test
+    return(out)
+}
+
+BAYESC = function(x, y, idx_train, idx_test) {
+    prefix = paste0("BayesC_", gsub(" ", "", date()), round(runif(1)*1e9), "-")
+    y_new = y
+    y_new[idx_test] = NA
+    fit = BGLR::BGLR(y=y_new, ETA=list(list(X=x, model='BayesC')), nIter=6000,burnIn=1000, saveAt=prefix, verbose=FALSE)
+    out = PERF(y[idx_test], fit$yHat[idx_test])
+    out$idx_test = idx_test
+    return(out)
+}
+
+
 KFOLD_CV = function(x, y, r=5, k=10) {
     x = as.matrix(x)
     y = as.matrix(y)
@@ -295,28 +316,27 @@ KFOLD_CV = function(x, y, r=5, k=10) {
                                 lasso = tryCatch(LASSO(x, y, idx_train, idx_test), error=function(e){NA})
                                 ridge = tryCatch(RIDGE(x, y, idx_train, idx_test), error=function(e){NA})
                                 elastic = tryCatch(ELASTIC(x, y, idx_train, idx_test), error=function(e){NA})
-                                return(list(ols=ols, lasso=lasso, ridge=ridge, elastic=elastic))
+                                bayesa = tryCatch(BAYESA(x, y, idx_train, idx_test), error=function(e){NA})
+                                bayesb = tryCatch(BAYESB(x, y, idx_train, idx_test), error=function(e){NA})
+                                bayesc = tryCatch(BAYESC(x, y, idx_train, idx_test), error=function(e){NA})
+                                return(list(ols=ols, lasso=lasso, ridge=ridge, elastic=elastic, bayesa=bayesa, bayesb=bayesb, bayesc=bayesc))
                             }, mc.cores=parallel::detectCores())
-    ols = list()
-    lasso = list()
-    ridge = list()
-    elastic = list()
-    for (rep in 1:r) {
-        eval(parse(text=paste0("ols$rep_", rep, " = list()")))
-        eval(parse(text=paste0("lasso$rep_", rep, " = list()")))
-        eval(parse(text=paste0("ridge$rep_", rep, " = list()")))
-        eval(parse(text=paste0("elastic$rep_", rep, " = list()")))
-        for (fold in 1:k) {
-            eval(parse(text=paste0("ols$rep_", rep, "$fold_", fold, " = perf$`", rep, "-", fold, "`$ols")))
-            eval(parse(text=paste0("lasso$rep_", rep, "$fold_", fold, " = perf$`", rep, "-", fold, "`$lasso")))
-            eval(parse(text=paste0("ridge$rep_", rep, "$fold_", fold, " = perf$`", rep, "-", fold, "`$ridge")))
-            eval(parse(text=paste0("elastic$rep_", rep, "$fold_", fold, " = perf$`", rep, "-", fold, "`$elastic")))
+    vec_models = c("ols", "lasso", "ridge", "elastic", "basyesa", "basyesb", "basyesc")
+    for (model in vec_models)
+        eval(parse(text=paste0(model, " = list()")))
+        for (rep in 1:r) {
+            eval(parse(text=paste0(model, "$rep_", rep, " = list()")))
+            for (fold in 1:k) {
+                eval(parse(text=paste0(model, "$rep_", rep, "$fold_", fold, " = perf$`", rep, "-", fold, "`$", model)))
+            }
         }
-    }
     out = list(ols=ols,
                 lasso=lasso,
                 ridge=ridge,
-                elastic=elastic)
+                elastic=elastic,
+                bayesa=bayesa,
+                bayesb=bayesb,
+                bayesc=bayesc)
     return(out)
 }
 
@@ -497,171 +517,173 @@ MERGE_PHENOTYPE_WITH_GENOTYPE_AND_ENVIRONMENTAL_DATA = function(df_phenotype, df
     return(df_phe_gen_env)
 }
 
-
 ##################
 ### UNIT TESTS ###
 ##################
-seed = 42069
-set.seed(seed)
-n = 100
-p = 1000
-q = 10
-maf = 1e-4
-h2 = 0.75
-X_sim = matrix(runif(n*p, min=maf, max=1-maf), nrow=n)
-b = rep(0, p)
-idx_b = sort(sample(c(1:p), q))
-b[idx_b] = 1.0
-xb = X_sim %*% b
-v_xb = var(xb)
-v_e = (v_xb/h2) - v_xb
-e = rnorm(n, mean=0, sd=sqrt(v_e))
-y = xb + e
-y_sim = scale(y, center=T, scale=T)[,1]
-idx_train = 1:90
-idx_test = 91:100
+tests = function () {
+    seed = 42069
+    set.seed(seed)
+    n = 100
+    p = 1000
+    q = 10
+    maf = 1e-4
+    h2 = 0.75
+    X_sim = matrix(runif(n*p, min=maf, max=1-maf), nrow=n)
+    b = rep(0, p)
+    idx_b = sort(sample(c(1:p), q))
+    b[idx_b] = 1.0
+    xb = X_sim %*% b
+    v_xb = var(xb)
+    v_e = (v_xb/h2) - v_xb
+    e = rnorm(n, mean=0, sd=sqrt(v_e))
+    y = xb + e
+    y_sim = scale(y, center=T, scale=T)[,1]
+    idx_train = 1:90
+    idx_test = 91:100
 
-test_that(
-    "PERF", {
-        print("PERF:")
-        set.seed(seed)
-        expect_equal(PERF(y_test=y_sim, y_hat=y_sim*+2)$cor, +1, tolerance=1e-7)
-        expect_equal(PERF(y_test=y_sim, y_hat=y_sim*-1)$cor, -1, tolerance=1e-7)
-        expect_equal(PERF(y_test=y_sim, y_hat=xb)$mae, +5, tolerance=0.5)
-        expect_equal(PERF(y_test=y_sim, y_hat=xb)$mbe, -5, tolerance=0.5)
-        expect_equal(PERF(y_test=y_sim, y_hat=xb)$rmse, +5, tolerance=0.5)
-    }
-)
+    test_that(
+        "PERF", {
+            print("PERF:")
+            set.seed(seed)
+            expect_equal(PERF(y_test=y_sim, y_hat=y_sim*+2)$cor, +1, tolerance=1e-7)
+            expect_equal(PERF(y_test=y_sim, y_hat=y_sim*-1)$cor, -1, tolerance=1e-7)
+            expect_equal(PERF(y_test=y_sim, y_hat=xb)$mae, +5, tolerance=0.5)
+            expect_equal(PERF(y_test=y_sim, y_hat=xb)$mbe, -5, tolerance=0.5)
+            expect_equal(PERF(y_test=y_sim, y_hat=xb)$rmse, +5, tolerance=0.5)
+        }
+    )
 
-test_that(
-    "OLS", {
-        print("OLS:")
-        set.seed(seed)
-        cor1 = OLS(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_train)$cor
-        cor2 = OLS(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_test)$cor
-        expect_equal(cor1, 1.0, tolerance=1e-7)
-        expect_equal(cor2, 0.191562494269293, tolerance=1e-7)
-    }
-)
+    test_that(
+        "OLS", {
+            print("OLS:")
+            set.seed(seed)
+            cor1 = OLS(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_train)$cor
+            cor2 = OLS(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_test)$cor
+            expect_equal(cor1, 1.0, tolerance=1e-7)
+            expect_equal(cor2, 0.191562494269293, tolerance=1e-7)
+        }
+    )
 
 
-test_that(
-    "LASSO", {
-        print("LASSO:")
-        set.seed(seed)
-        cor1 = LASSO(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_train)$cor
-        cor2 = LASSO(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_test)$cor
-        expect_equal(cor1, 0.97135207990405, tolerance=1e-7)
-        expect_equal(cor2, 0.62379540969574, tolerance=1e-7)
-    }
-)
+    test_that(
+        "LASSO", {
+            print("LASSO:")
+            set.seed(seed)
+            cor1 = LASSO(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_train)$cor
+            cor2 = LASSO(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_test)$cor
+            expect_equal(cor1, 0.97135207990405, tolerance=1e-7)
+            expect_equal(cor2, 0.62379540969574, tolerance=1e-7)
+        }
+    )
 
-test_that(
-    "RIDGE", {
-        print("RIDGE:")
-        set.seed(seed)
-        cor1 = RIDGE(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_train)$cor
-        cor2 = RIDGE(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_test)$cor
-        expect_equal(cor1, 0.996749570837874, tolerance=1e-7)
-        expect_equal(cor2, 0.139118883736874, tolerance=1e-7)
-    }
-)
+    test_that(
+        "RIDGE", {
+            print("RIDGE:")
+            set.seed(seed)
+            cor1 = RIDGE(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_train)$cor
+            cor2 = RIDGE(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_test)$cor
+            expect_equal(cor1, 0.996749570837874, tolerance=1e-7)
+            expect_equal(cor2, 0.139118883736874, tolerance=1e-7)
+        }
+    )
 
-test_that(
-    "ELASTIC", {
-        print("ELASTIC:")
-        set.seed(seed)
-        cor1 = ELASTIC(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_train)$cor
-        cor2 = ELASTIC(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_test)$cor
-        expect_equal(cor1, 0.97135207990405, tolerance=1e-7)
-        expect_equal(cor2, 0.62379540969574, tolerance=1e-7)
-    }
-)
+    test_that(
+        "ELASTIC", {
+            print("ELASTIC:")
+            set.seed(seed)
+            cor1 = ELASTIC(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_train)$cor
+            cor2 = ELASTIC(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_test)$cor
+            expect_equal(cor1, 0.97135207990405, tolerance=1e-7)
+            expect_equal(cor2, 0.62379540969574, tolerance=1e-7)
+        }
+    )
 
-test_that(
-    "KFOLD_CV", {
-        print("KFOLD_CV:")
-        kfold = KFOLD_CV(x=X_sim, y=y_sim, r=2, k=10)
-        ols_corr = mean(unlist(lapply(kfold$ols, FUN=function(x){lapply(x, FUN=function(y){y$cor})})))
-        elastic_corr = mean(unlist(lapply(kfold$elastic, FUN=function(x){lapply(x, FUN=function(y){y$cor})})))
-        ols_rmse = mean(unlist(lapply(kfold$ols, FUN=function(x){lapply(x, FUN=function(y){y$rmse})})))
-        elastic_rmse = mean(unlist(lapply(kfold$elastic, FUN=function(x){lapply(x, FUN=function(y){y$rmse})})))
-        expect_equal(ols_corr,     0.1555020, tolerance=1e-7)
-        expect_equal(elastic_corr, 0.5628153, tolerance=1e-7)
-        expect_equal(ols_rmse,     0.9575458, tolerance=1e-7)
-        expect_equal(elastic_rmse, 0.8135351, tolerance=1e-7)
-    }
-)
+    test_that(
+        "KFOLD_CV", {
+            print("KFOLD_CV:")
+            kfold = KFOLD_CV(x=X_sim, y=y_sim, r=2, k=10)
+            ols_corr = mean(unlist(lapply(kfold$ols, FUN=function(x){lapply(x, FUN=function(y){y$cor})})))
+            elastic_corr = mean(unlist(lapply(kfold$elastic, FUN=function(x){lapply(x, FUN=function(y){y$cor})})))
+            ols_rmse = mean(unlist(lapply(kfold$ols, FUN=function(x){lapply(x, FUN=function(y){y$rmse})})))
+            elastic_rmse = mean(unlist(lapply(kfold$elastic, FUN=function(x){lapply(x, FUN=function(y){y$rmse})})))
+            expect_equal(ols_corr,     0.1555020, tolerance=1e-7)
+            expect_equal(elastic_corr, 0.5628153, tolerance=1e-7)
+            expect_equal(ols_rmse,     0.9575458, tolerance=1e-7)
+            expect_equal(elastic_rmse, 0.8135351, tolerance=1e-7)
+        }
+    )
 
-test_that(
-    "LOAD_PHENOTYPES", {
-        print("LOAD_PHENOTYPES:")
-        df1 = LOAD_PHENOTYPES(phenotype_names=c("Glyphosate", "Sulfometuron"))
-        df2 = LOAD_PHENOTYPES(batch="SHOULD_ERROR")
-        df3 = LOAD_PHENOTYPES(phenotype_names="SHOULD_ERROR_TOO")
-        expect_equal(dim(df1), c(47, 6), tolerance=1e-7)
-        expect_equal(df2, "ERROR!")
-        expect_equal(df3, "ERROR!")
-    }
-)
+    test_that(
+        "LOAD_PHENOTYPES", {
+            print("LOAD_PHENOTYPES:")
+            df1 = LOAD_PHENOTYPES(phenotype_names=c("Glyphosate", "Sulfometuron"))
+            df2 = LOAD_PHENOTYPES(batch="SHOULD_ERROR")
+            df3 = LOAD_PHENOTYPES(phenotype_names="SHOULD_ERROR_TOO")
+            expect_equal(dim(df1), c(47, 6), tolerance=1e-7)
+            expect_equal(df2, "ERROR!")
+            expect_equal(df3, "ERROR!")
+        }
+    )
 
-test_that(
-    "LOAD_GENOTYPES", {
-        print("LOAD_GENOTYPES:")
-        df1 = LOAD_GENOTYPES(maf=0.1)
-        df2 = LOAD_GENOTYPES(maf=0.5)
-        expect_equal(dim(df1), c(119, 855), tolerance=1e-7)
-        expect_equal(df2, "ERROR!")
-    }
-)
+    test_that(
+        "LOAD_GENOTYPES", {
+            print("LOAD_GENOTYPES:")
+            df1 = LOAD_GENOTYPES(maf=0.1)
+            df2 = LOAD_GENOTYPES(maf=0.5)
+            expect_equal(dim(df1), c(119, 855), tolerance=1e-7)
+            expect_equal(df2, "ERROR!")
+        }
+    )
 
-test_that(
-    "LOAD_ENVIRONMENTAL_DATA", {
-        print("LOAD_ENVIRONMENTAL_DATA:")
-        df1 = LOAD_ENVIRONMENTAL_DATA()
-        df2 = LOAD_ENVIRONMENTAL_DATA(dname_climate_grid_data="SHOULD_ERROR")
-        df3 = LOAD_ENVIRONMENTAL_DATA(dname_soil_grid_data="SHOULD_ERROR_TOO")
-        expect_equal(names(df1)[c(1, 4, 12, 13, 18)], c("evapora", "rh1500h", "nutavail", "nutreten", "workable"), tolerance=1e-7)
-        expect_equal(df3, "ERROR!")
-        expect_equal(df2, "ERROR!")
-    }
-)
+    test_that(
+        "LOAD_ENVIRONMENTAL_DATA", {
+            print("LOAD_ENVIRONMENTAL_DATA:")
+            df1 = LOAD_ENVIRONMENTAL_DATA()
+            df2 = LOAD_ENVIRONMENTAL_DATA(dname_climate_grid_data="SHOULD_ERROR")
+            df3 = LOAD_ENVIRONMENTAL_DATA(dname_soil_grid_data="SHOULD_ERROR_TOO")
+            expect_equal(names(df1)[c(1, 4, 12, 13, 18)], c("evapora", "rh1500h", "nutavail", "nutreten", "workable"), tolerance=1e-7)
+            expect_equal(df3, "ERROR!")
+            expect_equal(df2, "ERROR!")
+        }
+    )
 
-test_that(
-    "MERGE_PHENOTYPE_WITH_GENOTYPE_DATA", {
-        print("MERGE_PHENOTYPE_WITH_GENOTYPE_DATA:")
-        df_phenotype = LOAD_PHENOTYPES(phenotype_names=c("Glyphosate", "Clethodim"))
-        df_genotype = LOAD_GENOTYPES(maf=0.2)
-        df1 = MERGE_PHENOTYPE_WITH_GENOTYPE_DATA(df_phenotype=df_phenotype, df_genotype=df_genotype)
-        df2 = MERGE_PHENOTYPE_WITH_GENOTYPE_DATA(df_phenotype=data.frame(), df_genotype=df_genotype)
-        df3 = MERGE_PHENOTYPE_WITH_GENOTYPE_DATA(df_phenotype=data.frame(X.Population=NA), df_genotype=df_genotype)
-        expect_equal(dim(df1), c(113, 322), tolerance=1e-7)
-        expect_equal(df3, "ERROR!")
-        expect_equal(df2, "ERROR!")
-    }
-)
+    test_that(
+        "MERGE_PHENOTYPE_WITH_GENOTYPE_DATA", {
+            print("MERGE_PHENOTYPE_WITH_GENOTYPE_DATA:")
+            df_phenotype = LOAD_PHENOTYPES(phenotype_names=c("Glyphosate", "Clethodim"))
+            df_genotype = LOAD_GENOTYPES(maf=0.2)
+            df1 = MERGE_PHENOTYPE_WITH_GENOTYPE_DATA(df_phenotype=df_phenotype, df_genotype=df_genotype)
+            df2 = MERGE_PHENOTYPE_WITH_GENOTYPE_DATA(df_phenotype=data.frame(), df_genotype=df_genotype)
+            df3 = MERGE_PHENOTYPE_WITH_GENOTYPE_DATA(df_phenotype=data.frame(X.Population=NA), df_genotype=df_genotype)
+            expect_equal(dim(df1), c(113, 322), tolerance=1e-7)
+            expect_equal(df3, "ERROR!")
+            expect_equal(df2, "ERROR!")
+        }
+    )
 
-test_that(
-    "MERGE_PHENOTYPE_WITH_ENVIRONMENTAL_DATA", {
-        print("MERGE_PHENOTYPE_WITH_ENVIRONMENTAL_DATA:")
-        df_phenotype = LOAD_PHENOTYPES(phenotype_names=c("Glyphosate", "Clethodim"))
-        raster_layers = LOAD_ENVIRONMENTAL_DATA()
-        df1 = MERGE_PHENOTYPE_WITH_ENVIRONMENTAL_DATA(df_phenotype=df_phenotype, raster_layers=raster_layers)
-        df2 = MERGE_PHENOTYPE_WITH_ENVIRONMENTAL_DATA(df_phenotype=data.frame(Longitude=NA), raster_layers=raster_layers)
-        df3 = MERGE_PHENOTYPE_WITH_ENVIRONMENTAL_DATA(df_phenotype=data.frame(Latitude=NA), raster_layers=raster_layers)
-        expect_equal(dim(df1), c(113, 24), tolerance=1e-7)
-        expect_equal(df2, "ERROR!")
-        expect_equal(df3, "ERROR!")
-    }
-)
+    test_that(
+        "MERGE_PHENOTYPE_WITH_ENVIRONMENTAL_DATA", {
+            print("MERGE_PHENOTYPE_WITH_ENVIRONMENTAL_DATA:")
+            df_phenotype = LOAD_PHENOTYPES(phenotype_names=c("Glyphosate", "Clethodim"))
+            raster_layers = LOAD_ENVIRONMENTAL_DATA()
+            df1 = MERGE_PHENOTYPE_WITH_ENVIRONMENTAL_DATA(df_phenotype=df_phenotype, raster_layers=raster_layers)
+            df2 = MERGE_PHENOTYPE_WITH_ENVIRONMENTAL_DATA(df_phenotype=data.frame(Longitude=NA), raster_layers=raster_layers)
+            df3 = MERGE_PHENOTYPE_WITH_ENVIRONMENTAL_DATA(df_phenotype=data.frame(Latitude=NA), raster_layers=raster_layers)
+            expect_equal(dim(df1), c(113, 24), tolerance=1e-7)
+            expect_equal(df2, "ERROR!")
+            expect_equal(df3, "ERROR!")
+        }
+    )
 
-test_that(
-    "MERGE_PHENOTYPE_WITH_GENOTYPE_AND_ENVIRONMENTAL_DATA", {
-        print("MERGE_PHENOTYPE_WITH_GENOTYPE_AND_ENVIRONMENTAL_DATA:")
-        df_phenotype = LOAD_PHENOTYPES(phenotype_names=c("Glyphosate", "Clethodim"))
-        df_genotype = LOAD_GENOTYPES(maf=0.2)
-        raster_layers = LOAD_ENVIRONMENTAL_DATA()
-        df1 = MERGE_PHENOTYPE_WITH_GENOTYPE_AND_ENVIRONMENTAL_DATA(df_phenotype=df_phenotype, df_genotype=df_genotype, raster_layers=raster_layers)
-        expect_equal(dim(df1), c(113, 340), tolerance=1e-7)
-    }
-)
+    test_that(
+        "MERGE_PHENOTYPE_WITH_GENOTYPE_AND_ENVIRONMENTAL_DATA", {
+            print("MERGE_PHENOTYPE_WITH_GENOTYPE_AND_ENVIRONMENTAL_DATA:")
+            df_phenotype = LOAD_PHENOTYPES(phenotype_names=c("Glyphosate", "Clethodim"))
+            df_genotype = LOAD_GENOTYPES(maf=0.2)
+            raster_layers = LOAD_ENVIRONMENTAL_DATA()
+            df1 = MERGE_PHENOTYPE_WITH_GENOTYPE_AND_ENVIRONMENTAL_DATA(df_phenotype=df_phenotype, df_genotype=df_genotype, raster_layers=raster_layers)
+            expect_equal(dim(df1), c(113, 340), tolerance=1e-7)
+        }
+    )
+}
+# tests()

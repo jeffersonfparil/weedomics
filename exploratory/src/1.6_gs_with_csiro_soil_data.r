@@ -1,10 +1,3 @@
-# 1. What is the current pattern of herbicide resistances across SE Australia?
-
-## 1.6. Models of herbicide resistances across SE Austrlia using population-level genomic information, environmental variables, and other herbicide resistances
-
-Add these data from CSIRO (c/o Alex): [csv file](https://urldefense.com/v3/__https://drive.google.com/file/d/1RDxAuoXQZynMORNE2kRP_ZqHkWx1FuW4/view?usp=drive_link__;!!C5rN6bSF!EW1RdWcKYKRux59Bb7iOcZFy6tcDY7A5eX9aNZsdb1sGhy_ACkbt8TvfAgDGqldsbFJIl4y-NOBX5svFGLNcdxOytNbQJto_WFOeesgEtPsMrYp6$)
-
-```R
 setwd("/data-weedomics-1/weedomics/exploratory")
 source("src/modelling_and_crossfold_validation.r")
 
@@ -109,14 +102,3 @@ for (herbi in vec_names_phenotypes) {
         dev.off()
     }
 }
-```
-
-![ols-Glyphosate](../res/genomic_prediction-ols-Glyphosate.svg)
-![ridge-Glyphosate](../res/genomic_prediction-ridge-Glyphosate.svg)
-![lasso-Glyphosate](../res/genomic_prediction-lasso-Glyphosate.svg)
-![elastic-Glyphosate](../res/genomic_prediction-elastic-Glyphosate.svg)
-
-![ols-Clethodim](../res/genomic_prediction-ols-Clethodim.svg)
-![ridge-Clethodim](../res/genomic_prediction-ridge-Clethodim.svg)
-![lasso-Clethodim](../res/genomic_prediction-lasso-Clethodim.svg)
-![elastic-Clethodim](../res/genomic_prediction-elastic-Clethodim.svg)
