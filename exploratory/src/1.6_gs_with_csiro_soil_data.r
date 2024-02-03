@@ -16,11 +16,13 @@ df_covariates_csiro_soil_data = read.csv(file=fname_csiro_soil_data)
 colnames(df_covariates_csiro_soil_data)[grepl("Accession", colnames(df_covariates_csiro_soil_data))] = "X.Population"
 
 vec_names_ids = c("X.Population", "Batch", "Pool_size", "Latitude", "Longitude", "long", "lat")
-vec_names_phenotypes = colnames(read.csv(fname_phenotype))
-vec_names_phenotypes = vec_names_phenotypes[!(vec_names_phenotypes %in% vec_names_ids)]
+vec_names_herbicides = colnames(read.csv(fname_phenotype))
+vec_names_herbicides = vec_names_herbicides[!(vec_names_herbicides %in% vec_names_ids)]
 
-for (herbi in vec_names_phenotypes) {
-    # herbi = vec_names_phenotypes[2]
+for (herbi in tail(vec_names_herbicides, n=1)) {
+    # herbi = vec_names_herbicides[2]
+    print("########################")
+    print(herbi)
     df_phenotype = LOAD_PHENOTYPES(fname_phenotype=fname_phenotype, batch="all", phenotype_names=herbi)
     df_phenotype = merge(df_phenotype, df_covariates_csiro_soil_data, by="X.Population")
     df = MERGE_PHENOTYPE_WITH_GENOTYPE_AND_ENVIRONMENTAL_DATA(df_phenotype=df_phenotype, df_genotype=df_genotype, raster_layers=raster_layers)
@@ -52,6 +54,7 @@ for (herbi in vec_names_phenotypes) {
 
     for (explanatory_variables in c("G", "E_and_G")) {
         # explanatory_variables = "G"
+        print(explanatory_variables)
         options(digits.secs=7)
         start_time = Sys.time()
         if (explanatory_variables == "G") {
@@ -70,7 +73,7 @@ for (herbi in vec_names_phenotypes) {
     col_line = rgb(0.9, 0.2, 0.1, alpha=0.5)
     for (model in vec_models) {
         # model = "ols"
-        svg(paste0("res/genomic_prediction-", model, "-", herbi, ".svg"))
+        svg(paste0("res/genomic_prediction-", model, "-", herbi, ".svg"), width=14, height=7)
         layout(matrix(1:2, nrow=1))
         for (explanatory_variables in c("G", "E_and_G")) {
             # explanatory_variables = "G"
