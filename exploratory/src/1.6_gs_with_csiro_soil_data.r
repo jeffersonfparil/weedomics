@@ -19,7 +19,7 @@ vec_names_ids = c("X.Population", "Batch", "Pool_size", "Latitude", "Longitude",
 vec_names_herbicides = colnames(read.csv(fname_phenotype))
 vec_names_herbicides = vec_names_herbicides[!(vec_names_herbicides %in% vec_names_ids)]
 
-for (herbi in tail(vec_names_herbicides, n=1)) {
+for (herbi in vec_names_herbicides) {
     # herbi = vec_names_herbicides[2]
     print("########################")
     print(herbi)
