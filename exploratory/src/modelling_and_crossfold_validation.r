@@ -285,6 +285,8 @@ fn_logistic_ridge = function(x, y, idx_train, idx_test) {
     mod_elastic = cv.glmnet(x=x_train, y=y_train, family="binomial", alpha=0.0)
     r_hat = predict(mod_elastic, type="response", newx=x_test, s="lambda.min")[,1]
     y_hat = ifelse(r_hat >= 0.5, 1, 0)
+    l_hat = predict(mod_elastic, type="link", newx=x_test, s="lambda.min")[,1]
+    model = glm(y_hat ~ l_hat, family=binomial(link="logit"))
     out = PERF(y_test, y_hat)
     out$idx_test = idx_test
     out$y_hat = y_hat ### predicted binary response
@@ -317,6 +319,8 @@ fn_logistic_elastic = function(x, y, idx_train, idx_test) {
     mod_elastic = cv.glmnet(x=x_train, y=y_train, family="binomial")
     r_hat = predict(mod_elastic, type="response", newx=x_test, s="lambda.min")[,1]
     y_hat = ifelse(r_hat >= 0.5, 1, 0)
+    l_hat = predict(mod_elastic, type="link", newx=x_test, s="lambda.min")[,1]
+    model = glm(y_hat ~ l_hat, family=binomial(link="logit"))
     out = PERF(y_test, y_hat)
     out$idx_test = idx_test
     out$y_hat = y_hat ### predicted binary response
