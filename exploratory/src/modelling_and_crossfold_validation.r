@@ -188,7 +188,7 @@ PERF = function(y_test, y_hat) {
     return(list(cor=cor, mbe=mbe, mae=mae, mse=mse, rmse=rmse, y_hat=y_hat, y_test=y_test))
 }
 
-OLS = function(x, y, idx_train, idx_test) {
+fn_ols = function(x, y, idx_train, idx_test) {
     x_train = x[idx_train, ]
     x_test = x[idx_test, ]
     y_train = y[idx_train]
@@ -211,19 +211,7 @@ OLS = function(x, y, idx_train, idx_test) {
     return(out)
 }
 
-LASSO = function(x, y, idx_train, idx_test) {
-    x_train = x[idx_train, ]
-    x_test = x[idx_test, ]
-    y_train = y[idx_train]
-    y_test = y[idx_test]
-    mod_lasso = cv.glmnet(x=x_train, y=y_train, alpha=1.0)
-    y_hat = predict(mod_lasso, newx=x_test, s="lambda.min")[,1]
-    out = PERF(y_test, y_hat)
-    out$idx_test = idx_test
-    return(out)
-}
-
-RIDGE = function(x, y, idx_train, idx_test) {
+fn_ridge = function(x, y, idx_train, idx_test) {
     x_train = x[idx_train, ]
     x_test = x[idx_test, ]
     y_train = y[idx_train]
@@ -235,7 +223,19 @@ RIDGE = function(x, y, idx_train, idx_test) {
     return(out)
 }
 
-ELASTIC = function(x, y, idx_train, idx_test) {
+fn_lasso = function(x, y, idx_train, idx_test) {
+    x_train = x[idx_train, ]
+    x_test = x[idx_test, ]
+    y_train = y[idx_train]
+    y_test = y[idx_test]
+    mod_lasso = cv.glmnet(x=x_train, y=y_train, alpha=1.0)
+    y_hat = predict(mod_lasso, newx=x_test, s="lambda.min")[,1]
+    out = PERF(y_test, y_hat)
+    out$idx_test = idx_test
+    return(out)
+}
+
+fn_elastic = function(x, y, idx_train, idx_test) {
     x_train = x[idx_train, ]
     x_test = x[idx_test, ]
     y_train = y[idx_train]
@@ -247,7 +247,7 @@ ELASTIC = function(x, y, idx_train, idx_test) {
     return(out)
 }
 
-BAYESA = function(x, y, idx_train, idx_test) {
+fn_bayesa = function(x, y, idx_train, idx_test) {
     prefix = paste0("BayesA_", gsub(" ", "", date()), round(runif(1)*1e9), "-")
     y_new = y
     y_new[idx_test] = NA
@@ -257,7 +257,7 @@ BAYESA = function(x, y, idx_train, idx_test) {
     return(out)
 }
 
-BAYESB = function(x, y, idx_train, idx_test) {
+fn_bayesb = function(x, y, idx_train, idx_test) {
     prefix = paste0("BayesB_", gsub(" ", "", date()), round(runif(1)*1e9), "-")
     y_new = y
     y_new[idx_test] = NA
@@ -267,7 +267,7 @@ BAYESB = function(x, y, idx_train, idx_test) {
     return(out)
 }
 
-BAYESC = function(x, y, idx_train, idx_test) {
+fn_bayesc = function(x, y, idx_train, idx_test) {
     prefix = paste0("BayesC_", gsub(" ", "", date()), round(runif(1)*1e9), "-")
     y_new = y
     y_new[idx_test] = NA
@@ -277,8 +277,54 @@ BAYESC = function(x, y, idx_train, idx_test) {
     return(out)
 }
 
+fn_logistic_ridge = function(x, y, idx_train, idx_test) {
+    x_train = x[idx_train, ]
+    x_test = x[idx_test, ]
+    y_train = y[idx_train]  ### y is a binary vector
+    y_test = y[idx_test]    ### y is a binary vector
+    mod_elastic = cv.glmnet(x=x_train, y=y_train, family="binomial", alpha=0.0)
+    r_hat = predict(mod_elastic, type="response", newx=x_test, s="lambda.min")[,1]
+    y_hat = ifelse(r_hat >= 0.5, 1, 0)
+    out = PERF(y_test, y_hat)
+    out$idx_test = idx_test
+    out$y_hat = y_hat ### predicted binary response
+    out$l_hat = l_hat ### linear predictors
+    return(out)
+}
 
-KFOLD_CV = function(x, y, r=5, k=10) {
+fn_logistic_lasso = function(x, y, idx_train, idx_test) {
+    x_train = x[idx_train, ]
+    x_test = x[idx_test, ]
+    y_train = y[idx_train]  ### y is a binary vector
+    y_test = y[idx_test]    ### y is a binary vector
+    mod_elastic = cv.glmnet(x=x_train, y=y_train, family="binomial", alpha=1.0)
+    r_hat = predict(mod_elastic, type="response", newx=x_test, s="lambda.min")[,1]
+    y_hat = ifelse(r_hat >= 0.5, 1, 0)
+    l_hat = predict(mod_elastic, type="link", newx=x_test, s="lambda.min")[,1]
+    model = glm(y_hat ~ l_hat, family=binomial(link="logit"))
+    out = PERF(y_test, y_hat)
+    out$idx_test = idx_test
+    out$y_hat = y_hat ### predicted binary response
+    out$l_hat = l_hat ### linear predictors
+    return(out)
+}
+
+fn_logistic_elastic = function(x, y, idx_train, idx_test) {
+    x_train = x[idx_train, ]
+    x_test = x[idx_test, ]
+    y_train = y[idx_train]  ### y is a binary vector
+    y_test = y[idx_test]    ### y is a binary vector
+    mod_elastic = cv.glmnet(x=x_train, y=y_train, family="binomial")
+    r_hat = predict(mod_elastic, type="response", newx=x_test, s="lambda.min")[,1]
+    y_hat = ifelse(r_hat >= 0.5, 1, 0)
+    out = PERF(y_test, y_hat)
+    out$idx_test = idx_test
+    out$y_hat = y_hat ### predicted binary response
+    out$l_hat = l_hat ### linear predictors
+    return(out)
+}
+
+KFOLD_CV = function(x, y, r=5, k=10, vec_models=c("ols", "ridge", "lasso", "elastic", "bayesa", "bayesb", "bayesc", "logistic_ridge", "logistic_lasso", "logistic_elastic"), logistic_y_bin_threshold=0.5) {
     x = as.matrix(x)
     y = as.matrix(y)
     n = length(y)
@@ -312,16 +358,17 @@ KFOLD_CV = function(x, y, r=5, k=10) {
                                 bool_train = !bool_test
                                 idx_train = idx[bool_train]
                                 idx_test = idx[bool_test]
-                                ols = tryCatch(OLS(x, y, idx_train, idx_test), error=function(e){NA})
-                                lasso = tryCatch(LASSO(x, y, idx_train, idx_test), error=function(e){NA})
-                                ridge = tryCatch(RIDGE(x, y, idx_train, idx_test), error=function(e){NA})
-                                elastic = tryCatch(ELASTIC(x, y, idx_train, idx_test), error=function(e){NA})
-                                bayesa = tryCatch(BAYESA(x, y, idx_train, idx_test), error=function(e){NA})
-                                bayesb = tryCatch(BAYESB(x, y, idx_train, idx_test), error=function(e){NA})
-                                bayesc = tryCatch(BAYESC(x, y, idx_train, idx_test), error=function(e){NA})
-                                return(list(ols=ols, lasso=lasso, ridge=ridge, elastic=elastic, bayesa=bayesa, bayesb=bayesb, bayesc=bayesc))
+                                for (model in vec_models) {
+                                    if (grepl("logistic", model)) {
+                                        y_bin = ifelse(y >= logistic_y_bin_threshold, 1.0, 0.0)
+                                        eval(parse(text=paste0(model, " = tryCatch(fn_", model, "(x, y_bin, idx_train, idx_test), error=function(e){NA})")))
+                                    } else {
+                                        eval(parse(text=paste0(model, " = tryCatch(fn_", model, "(x, y, idx_train, idx_test), error=function(e){NA})")))
+                                    }
+                                }
+                                out = eval(parse(text=paste0("list(", paste(paste0(vec_models, "=", vec_models), collapse=","), ")")))
+                                return(out)
                             }, mc.cores=parallel::detectCores())
-    vec_models = c("ols", "lasso", "ridge", "elastic", "bayesa", "bayesb", "bayesc")
     for (model in vec_models) {
         eval(parse(text=paste0(model, " = list()")))
         for (rep in 1:r) {
@@ -331,13 +378,7 @@ KFOLD_CV = function(x, y, r=5, k=10) {
             }
         }
     }
-    out = list(ols=ols,
-                lasso=lasso,
-                ridge=ridge,
-                elastic=elastic,
-                bayesa=bayesa,
-                bayesb=bayesb,
-                bayesc=bayesc)
+    out = eval(parse(text=paste0("list(", paste(paste0(vec_models, "=", vec_models), collapse=","), ")")))
     return(out)
 }
 
@@ -555,11 +596,11 @@ tests = function () {
     )
 
     test_that(
-        "OLS", {
-            print("OLS:")
+        "fn_ols", {
+            print("fn_ols:")
             set.seed(seed)
-            cor1 = OLS(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_train)$cor
-            cor2 = OLS(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_test)$cor
+            cor1 = fn_ols(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_train)$cor
+            cor2 = fn_ols(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_test)$cor
             expect_equal(cor1, 1.0, tolerance=1e-7)
             expect_equal(cor2, 0.191562494269293, tolerance=1e-7)
         }
@@ -567,35 +608,49 @@ tests = function () {
 
 
     test_that(
-        "LASSO", {
-            print("LASSO:")
+        "fn_lasso", {
+            print("fn_lasso:")
             set.seed(seed)
-            cor1 = LASSO(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_train)$cor
-            cor2 = LASSO(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_test)$cor
+            cor1 = fn_lasso(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_train)$cor
+            cor2 = fn_lasso(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_test)$cor
             expect_equal(cor1, 0.97135207990405, tolerance=1e-7)
             expect_equal(cor2, 0.62379540969574, tolerance=1e-7)
         }
     )
 
     test_that(
-        "RIDGE", {
-            print("RIDGE:")
+        "fn_ridge", {
+            print("fn_ridge:")
             set.seed(seed)
-            cor1 = RIDGE(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_train)$cor
-            cor2 = RIDGE(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_test)$cor
+            cor1 = fn_ridge(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_train)$cor
+            cor2 = fn_ridge(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_test)$cor
             expect_equal(cor1, 0.996749570837874, tolerance=1e-7)
             expect_equal(cor2, 0.139118883736874, tolerance=1e-7)
         }
     )
 
     test_that(
-        "ELASTIC", {
-            print("ELASTIC:")
+        "fn_elastic", {
+            print("fn_elastic:")
             set.seed(seed)
-            cor1 = ELASTIC(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_train)$cor
-            cor2 = ELASTIC(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_test)$cor
+            cor1 = fn_elastic(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_train)$cor
+            cor2 = fn_elastic(x=X_sim, y=y_sim, idx_train=idx_train, idx_test=idx_test)$cor
             expect_equal(cor1, 0.97135207990405, tolerance=1e-7)
             expect_equal(cor2, 0.62379540969574, tolerance=1e-7)
+        }
+    )
+
+    ### Add unit tests for Bayesian models and logistic models
+
+    test_that(
+        "fn_logistic_elastic", {
+            print("fn_logistic_elastic:")
+            set.seed(seed)
+            y_bin = ifelse(y_sim >= 0.5, 1.0, 0.0)
+            cor1 = fn_logistic_elastic(x=X_sim, y=y_bin, idx_train=idx_train, idx_test=idx_train)$cor
+            cor2 = fn_logistic_elastic(x=X_sim, y=y_bin, idx_train=idx_train, idx_test=idx_test)$cor
+            expect_equal(cor1, 1.0000000, tolerance=1e-7)
+            expect_equal(cor2, 0.2721655, tolerance=1e-7)
         }
     )
 
