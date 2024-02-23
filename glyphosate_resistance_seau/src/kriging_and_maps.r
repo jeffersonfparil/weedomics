@@ -88,6 +88,7 @@ KRIGING_AND_LINEAR_MODELS = function(REGION, minimum_variance=1e-7) {
     mod = lm(z ~ x_centred + y_centred + (x_centred:y_centred))
     anova = data.frame(anova(mod))
     coef_summary = as.data.frame(summary(mod)$coefficients)
+    print(summary(mod))
     if (tail(anova$`Sum.Sq`, 1) < minimum_variance) {
         ### If there is no variation in z set significance to zero
         coef_summary[[4]] = 1.00
@@ -107,7 +108,10 @@ KRIGING_AND_LINEAR_MODELS = function(REGION, minimum_variance=1e-7) {
     coef_summary$sig_labels = paste(c("Intercept", "Longitude", "Latitude", "Interaction"), sig, sep="")
     return(list(df_kriged=P,
                 model=model,
-                coef_summary=coef_summary)
+                coef_summary=coef_summary,
+                anova_mod=anova(mod),
+                summary_mod=summary(mod),
+                var_pheno=var(z, na.rm=TRUE))
           )
 }
 
