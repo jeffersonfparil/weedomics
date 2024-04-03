@@ -844,9 +844,9 @@ for (pop_a in vec_pop_a) {
         dfst = df$fst_delta
         tajima_pval = df$tajima_width_one_tail_pval_pop_b
         dfst_pval = df$fst_delta_one_tail_pval
-        tajima_idx = which((-log10(tajima_pval) >= lod_threshold) & (tajima != 0))
+        tajima_idx = which((-log10(tajima_pval) >= lod_threshold) & (tajima < 0))
         dfst_idx = which((-log10(dfst_pval) >= lod_threshold) & (dfst != 0))
-        overlap_idx = which(((-log10(tajima_pval) >= lod_threshold) & (tajima != 0)) & ((-log10(dfst_pval) >= lod_threshold) & (dfst != 0)))
+        overlap_idx = which(((-log10(tajima_pval) >= lod_threshold) & (tajima < 0)) & ((-log10(dfst_pval) >= lod_threshold) & (dfst != 0)))
         labels = paste0(df$chr, "_", df$pos_ini, "-", df$pos_fin)
         svg(paste0("gudmc_plots-", pop_b, "_x_", pop_a, ".svg"), width=14, height=4)
         par(mar=c(5,4,5,7))
